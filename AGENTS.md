@@ -20,19 +20,26 @@ Guidance for AI coding agents working in this repository.
 
 ## Architecture Anchors
 
-- [src/br/com/engine/core/ControleBase.java](src/br/com/engine/core/ControleBase.java): singleton runtime controller, screen setup, scene switching, and main loop startup.
-- [src/br/com/engine/core/MainLoopFx.java](src/br/com/engine/core/MainLoopFx.java): thread-based main loop calling `setup`, `processLogics`, `renderGraphics`, and `paintScreen`.
+- [src/br/com/engine/main/Executor.java](src/br/com/engine/main/Executor.java): entry point; selects the `vulkan` backend and starts `LwjglVulkanExecutor`.
+- [src/br/com/engine/main/LwjglVulkanExecutor.java](src/br/com/engine/main/LwjglVulkanExecutor.java): the ACTIVE main loop (GLFW + LWJGL Vulkan). Initializes window/instance/device/swapchain/renderer and drives `processLogics` / `renderGraphics` / `drawFrame` each frame. The loop is uncapped (no `Thread.sleep`); the swapchain present mode paces it.
+- [src/br/com/engine/core/ControleBase.java](src/br/com/engine/core/ControleBase.java): singleton runtime controller, screen setup, scene switching, frame timing. `changeScene()` rebuilds a fresh scene instance from `ScenesDefinition` and calls `resetTransform()` so a previous scene's camera offset does not leak.
+- [src/br/com/engine/core/Time.java](src/br/com/engine/core/Time.java): Unity-style delta-time service. `Time.getDeltaTime()` (seconds, clamped to 0.25) and `Time.getDeltaMillis()`; fed by `ControleBase.processLogics()` from `System.nanoTime()` each frame before scenes update. Scale movement by delta to stay frame-rate independent.
 - [src/br/com/engine/core/Scene.java](src/br/com/engine/core/Scene.java): scene lifecycle, object collection management, deferred add/remove, collision pass.
 - [src/br/com/engine/core/GameObject.java](src/br/com/engine/core/GameObject.java): entity container for components and parent/child propagation.
+- [src/br/com/engine/graphics/EngineGraphicsContext.java](src/br/com/engine/graphics/EngineGraphicsContext.java) and [src/br/com/engine/platform/lwjgl/VulkanGraphicsContext.java](src/br/com/engine/platform/lwjgl/VulkanGraphicsContext.java): backend-neutral drawing contract and its only active (Vulkan) implementation; includes `resetTransform()`.
 - [src/br/com/engine/resources/ResourceManager.java](src/br/com/engine/resources/ResourceManager.java): resource type constants and loading conventions for images, audio, scripts, fonts, maps, and config.
 
 ## Package Map
 
-- `core`: engine control flow, scenes, game objects, vectors, loop.
+- `core`: engine control flow, scenes, game objects, vectors, loop contract, and the `Time` service.
+- `main`: backend selection (`Executor`) and the active Vulkan loop (`LwjglVulkanExecutor`), plus smoke apps.
+- `graphics`: backend-neutral drawing abstraction (`EngineGraphicsContext`, `Color`, `Font`, `Image`, transforms).
+- `platform.lwjgl`: concrete LWJGL Vulkan + GLFW implementation (window, instance, device, swapchain, renderer, quad pipeline, vertex buffer, caches, `VulkanGraphicsContext`).
 - `componentes`: components attached to `GameObject`; includes drawable, physics, scripts, audio, debug, and builders.
 - `resources`: config loading, scene definitions, content/resource lookup.
-- `input`: keyboard and mouse handlers.
+- `input`: keyboard and mouse handlers sourced from GLFW.
 - `fisica`: collision detection and resolution.
+- `geometry`: lightweight shapes such as `Rectangle`.
 - `interfaces`: engine extension points such as `IComponent`, loop hooks, collision interfaces, and input callbacks.
 
 ## Working Conventions
@@ -49,8 +56,9 @@ Guidance for AI coding agents working in this repository.
 - `Scene.setup()` always creates a default camera object.
 - `GameObject.setup()` adds a `VectorMonitor`, so movement side effects can propagate to child objects.
 - Debug mode injects extra debug components when objects are added to a scene.
-- Scene switches are deferred through `ControleBase.nextScene(...)`; do not assume immediate scene replacement.
-- The project now builds without JavaFX dependencies and uses Swing/Java2D as the temporary desktop backend.
+- Scene switches are deferred through `ControleBase.nextScene(...)`; do not assume immediate scene replacement. On switch, a fresh scene instance is built and the graphics transform is reset, so scene fields do not persist across visits.
+- The active desktop backend is LWJGL Vulkan + GLFW (`Executor` sets `enginefx.backend=vulkan`). A legacy Swing/Java2D path and `MainLoopFx` still exist in the tree but are not the active runtime.
+- The frame loop is uncapped; movement must be scaled by `Time.getDeltaTime()` (pixels per second) rather than fixed pixels per frame, or it will run faster at higher frame rates.
 - Script loading uses Nashorn via `ScriptEngineManager`; avoid introducing assumptions that require a different JS engine unless the task includes runtime/build updates.
 
 ## First Files To Read

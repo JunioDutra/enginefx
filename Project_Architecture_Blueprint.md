@@ -1,10 +1,12 @@
 # Project Architecture Blueprint
 
-Generated on June 2, 2026.
+Generated on June 2, 2026. Updated on June 3, 2026.
 
 ## 1. Architecture Detection And Analysis
 
-This repository is a Java game engine built with Maven. The code now targets Java 25 in [pom.xml](pom.xml), uses Swing for window bootstrap and Java2D for the temporary rendering surface, GSON for JSON parsing, LibTiled for TMX map loading, Apache Commons Lang for utility support, and Nashorn through `ScriptEngineManager` for JavaScript-based behavior.
+This repository is a Java game engine built with Maven. The code targets Java 25 in [pom.xml](pom.xml). The desktop window and input come from **GLFW**, and rendering runs on a **LWJGL Vulkan** backend with a batched quad pipeline. It uses GSON for JSON parsing, LibTiled for TMX map loading, Apache Commons Lang for utility support, and Nashorn through `ScriptEngineManager` for JavaScript-based behavior.
+
+The rendering and windowing subsystem lives under [src/br/com/engine/platform/lwjgl](src/br/com/engine/platform/lwjgl) behind the backend-neutral abstractions in [src/br/com/engine/graphics](src/br/com/engine/graphics). A legacy Swing/Java2D path still exists in the tree (for example [src/br/com/engine/graphics/Java2DGraphicsTransform.java](src/br/com/engine/graphics/Java2DGraphicsTransform.java) and `MainLoopFx`), but it is no longer the active runtime: `Executor` selects the Vulkan backend.
 
 The dominant architectural style is a hybrid of:
 
@@ -12,21 +14,25 @@ The dominant architectural style is a hybrid of:
 - A layered engine structure organized by package responsibility.
 - An entity-component style runtime model centered on `GameObject` plus `IComponent`.
 - Convention-based resource loading driven by file paths and JSON manifests.
+- A backend-neutral graphics abstraction (`graphics`) with a concrete Vulkan implementation (`platform.lwjgl`).
 
 This is not a DI-container architecture, not a service-oriented system, and not a strict ECS in the data-oriented sense. Runtime behavior is controlled mainly by singletons, scene orchestration, component attachment, and per-frame iteration over in-memory objects.
 
 ## 2. Architectural Overview
 
-At runtime, Swing bootstraps the application in [src/br/com/engine/main/Executor.java](src/br/com/engine/main/Executor.java). From there, [src/br/com/engine/core/ControleBase.java](src/br/com/engine/core/ControleBase.java) becomes the global engine coordinator. It loads configuration, creates the screen, initializes scene instances, and starts the thread-based fixed-step loop implemented in [src/br/com/engine/core/MainLoopFx.java](src/br/com/engine/core/MainLoopFx.java).
+At runtime, [src/br/com/engine/main/Executor.java](src/br/com/engine/main/Executor.java) sets `enginefx.backend=vulkan` and starts [src/br/com/engine/main/LwjglVulkanExecutor.java](src/br/com/engine/main/LwjglVulkanExecutor.java). That executor initializes GLFW, the Vulkan instance/device/swapchain, and a `VulkanGraphicsContext`, then runs the main loop directly (it no longer delegates to `MainLoopFx`). From there, [src/br/com/engine/core/ControleBase.java](src/br/com/engine/core/ControleBase.java) is the global engine coordinator. It loads configuration, owns the screen, builds scene instances, and is driven each frame by the executor through `processLogics`, `renderGraphics`, and the renderer's `drawFrame`.
 
 The engine models world state through [src/br/com/engine/core/Scene.java](src/br/com/engine/core/Scene.java) and [src/br/com/engine/core/GameObject.java](src/br/com/engine/core/GameObject.java). A scene owns `GameObject` instances. A game object owns a list of components implementing [src/br/com/engine/interfaces/IComponent.java](src/br/com/engine/interfaces/IComponent.java). Those components are responsible for setup, per-frame logic, and drawing.
+
+Frame timing is centralized in [src/br/com/engine/core/Time.java](src/br/com/engine/core/Time.java), a Unity-style service. `ControleBase.processLogics()` measures the elapsed time with `System.nanoTime()` each frame and calls `Time.update(...)` before scenes update, so gameplay can scale movement by `Time.getDeltaTime()` (seconds) and stay frame-rate independent. The frame loop is no longer capped at 60 FPS; pacing is left to the swapchain present mode.
 
 The resulting architectural principles visible in code are:
 
 - Global runtime coordination is centralized.
-- Scene transitions are deferred instead of immediate.
+- Rendering is backend-neutral at the `graphics` boundary and Vulkan-specific under `platform.lwjgl`.
+- Frame timing is centralized and exposed as a delta-time service for frame-rate independence.
+- Scene transitions are deferred instead of immediate, and rebuild a fresh scene instance on switch.
 - Game behavior is composed through components rather than deep inheritance.
-- Rendering and updates run on a fixed frame cadence.
 - Resource loading is path- and extension-driven rather than registry-driven.
 - Runtime mutation during iteration is controlled through explicit queues.
 
@@ -36,14 +42,19 @@ The resulting architectural principles visible in code are:
 
 ```mermaid
 flowchart TD
-    Executor[Executor Swing entry point] --> ControleBase[ControleBase singleton]
-    ControleBase --> MainLoopFx[MainLoopFx thread loop]
-    ControleBase --> Screen[Screen Canvas plus BufferedImage wrapper]
+    Executor[Executor selects vulkan backend] --> VkExec[LwjglVulkanExecutor main loop]
+    VkExec --> GLFW[GLFW window and input]
+    VkExec --> VkCtx[VulkanGraphicsContext]
+    VkExec --> Renderer[LwjglVulkanFrameRenderer]
+    VkExec --> ControleBase[ControleBase singleton]
+
+    ControleBase --> Time[Time delta-time service]
+    ControleBase --> Screen[Screen plus EngineGraphicsContext]
     ControleBase --> Config[Configurations]
     ControleBase --> SceneList[Scene instances]
+    ControleBase --> SceneDefs[ScenesDefinition list]
 
-    MainLoopFx --> LoopSteps[LoopSteps lifecycle]
-    LoopSteps --> Scene[Current Scene]
+    SceneList --> Scene[Current Scene]
     Scene --> GameObject[GameObject collection]
     GameObject --> Components[IComponent implementations]
 
@@ -53,10 +64,12 @@ flowchart TD
     Components --> Audio[audio package]
     Components --> Debug[debug package]
 
+    Renderer --> VkPlatform[platform.lwjgl Vulkan pipeline]
+    VkCtx --> Graphics[graphics abstraction]
     ControleBase --> ResourceManager[ResourceManager]
     ResourceManager --> Res[(./res assets)]
     Scene --> Collision[Colisao]
-    Executor --> Input[KeyBoard and Mouse]
+    GLFW --> Input[KeyBoard and Mouse]
     Input --> Components
 ```
 
@@ -64,24 +77,26 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Executor.start] --> B[ControleBase.getInstance]
-    B --> C[MainLoopFx.run]
+    A[Executor.loadGame] --> B[LwjglVulkanExecutor.start]
+    B --> C[init GLFW Vulkan instance device swapchain]
     C --> D[ControleBase.setup]
     D --> E[Loading scene]
-    D --> F[Instantiate configured scenes]
+    D --> F[Build scenes and ScenesDefinition list]
     F --> G[nextScene bootable scene]
-    C --> H[processLogics]
-    H --> I{Scene change pending?}
-    I -- yes --> J[changeScene]
-    I -- no --> K[Scene.update dt]
+    B --> H[loop: pollEvents]
+    H --> I[processLogics]
+    I --> T[nanoTime delta to Time.update]
+    T --> U{Scene change pending?}
+    U -- yes --> J[changeScene rebuild fresh instance + resetTransform]
+    U -- no --> K[Scene.update dt]
     J --> K
     K --> L[update components]
     L --> M[collision pass]
     M --> N[flush deferred add remove]
-    N --> O[renderGraphics]
-    O --> P[Scene.draw]
-    P --> Q[component.draw]
-    Q --> R[paintScreen]
+    N --> O[beginFrame]
+    O --> P[renderGraphics]
+    P --> Q[Scene.draw and component.draw]
+    Q --> R[renderer.drawFrame Vulkan submit and present]
     R --> H
 ```
 
@@ -90,14 +105,19 @@ flowchart TD
 ```mermaid
 flowchart LR
     main --> core
+    main --> platform
     scenes --> core
     componentes --> core
     componentes --> interfaces
-    input --> awt
+    componentes --> graphics
+    platform --> graphics
+    platform --> lwjgl_glfw_vulkan
+    input --> lwjgl_glfw
     core --> resources
     core --> input
     core --> interfaces
     core --> fisica
+    core --> graphics
     resources --> gson
     resources --> libtiled
     resources --> scripting
@@ -110,7 +130,8 @@ flowchart LR
 Files:
 
 - [src/br/com/engine/core/ControleBase.java](src/br/com/engine/core/ControleBase.java)
-- [src/br/com/engine/core/MainLoopFx.java](src/br/com/engine/core/MainLoopFx.java)
+- [src/br/com/engine/main/LwjglVulkanExecutor.java](src/br/com/engine/main/LwjglVulkanExecutor.java)
+- [src/br/com/engine/core/Time.java](src/br/com/engine/core/Time.java)
 - [src/br/com/engine/interfaces/LoopSteps.java](src/br/com/engine/interfaces/LoopSteps.java)
 - [src/br/com/engine/core/Screen.java](src/br/com/engine/core/Screen.java)
 
@@ -120,24 +141,62 @@ Purpose and responsibility:
 - Loads configuration before the main loop starts.
 - Hosts the active scene.
 - Coordinates scene switching and rendering.
-- Exposes the engine graphics context backed by Java2D and a canvas-backed screen.
+- Exposes the engine graphics context (`EngineGraphicsContext`, implemented by `VulkanGraphicsContext`).
+- Centralizes frame timing through the `Time` service.
 
 Internal structure:
 
 - `ControleBase` is a lazily initialized singleton.
-- `MainLoopFx` implements the frame cadence with a dedicated thread sleeping toward a $\frac{1}{60}$ seconds per frame target.
-- `LoopSteps` defines the lifecycle contract used by the loop.
+- `LwjglVulkanExecutor` owns the actual main loop: it polls GLFW events, calls `processLogics`, begins the frame, calls `renderGraphics`, and submits via the Vulkan renderer. The loop runs free (no `Thread.sleep` cap); pacing is delegated to the swapchain present mode.
+- `Time` is a static, Unity-style delta-time service. `processLogics()` measures elapsed time with `System.nanoTime()` and calls `Time.update(...)` once per frame before scenes update. `Time.getDeltaTime()` returns seconds (clamped to `MAX_DELTA_SECONDS = 0.25` to avoid the "spiral of death"); the legacy `update(long time)` millis parameter is preserved via a nanosecond carry so sub-millisecond frames do not lose fractional time (important now that frames can be far shorter than 1 ms).
+- `MainLoopFx` and `LoopSteps` describe the older thread-based cadence; `MainLoopFx` is no longer the active loop but `LoopSteps` still defines the lifecycle contract the executor drives.
 
 Interaction patterns:
 
-- `Executor` delegates startup to `ControleBase`.
-- `ControleBase` delegates frame execution to `MainLoopFx`.
-- `MainLoopFx` calls `processLogics`, `renderGraphics`, and `paintScreen` on each frame.
+- `Executor` selects the Vulkan backend and starts `LwjglVulkanExecutor`.
+- `LwjglVulkanExecutor` drives `ControleBase` (`setup`, `processLogics`, `renderGraphics`) and the Vulkan renderer each frame.
+- Gameplay reads `Time.getDeltaTime()` to scale movement and stay frame-rate independent.
 
 Evolution patterns:
 
-- New runtime-wide behavior usually enters through `ControleBase` or `LoopSteps`.
+- New runtime-wide behavior usually enters through `ControleBase`, `Time`, or `LoopSteps`.
 - Changes here have broad consequences because almost every subsystem reaches back into the singleton.
+- Frame-rate-dependent movement is a bug now that the loop is uncapped: scale by `Time.getDeltaTime()` (pixels per second), not fixed pixels per frame.
+
+### Rendering And Platform Layer
+
+Files:
+
+- [src/br/com/engine/graphics/EngineGraphicsContext.java](src/br/com/engine/graphics/EngineGraphicsContext.java)
+- [src/br/com/engine/platform/lwjgl/VulkanGraphicsContext.java](src/br/com/engine/platform/lwjgl/VulkanGraphicsContext.java)
+- [src/br/com/engine/platform/lwjgl/LwjglVulkanFrameRenderer.java](src/br/com/engine/platform/lwjgl/LwjglVulkanFrameRenderer.java)
+- [src/br/com/engine/platform/lwjgl/LwjglVulkanSwapchain.java](src/br/com/engine/platform/lwjgl/LwjglVulkanSwapchain.java)
+- [src/br/com/engine/platform/lwjgl/LwjglVulkanQuadPipeline.java](src/br/com/engine/platform/lwjgl/LwjglVulkanQuadPipeline.java)
+- [src/br/com/engine/platform/lwjgl/LwjglVulkanDynamicVertexBuffer.java](src/br/com/engine/platform/lwjgl/LwjglVulkanDynamicVertexBuffer.java)
+- [src/br/com/engine/platform/lwjgl/LwjglVulkanWindow.java](src/br/com/engine/platform/lwjgl/LwjglVulkanWindow.java)
+
+Purpose and responsibility:
+
+- Provide a backend-neutral drawing API (`graphics`) consumed by components, and a concrete Vulkan implementation (`platform.lwjgl`).
+- Manage the GLFW window, Vulkan instance/device/swapchain, command recording, and presentation.
+- Batch 2D drawing into a dynamic vertex buffer of quads submitted per frame.
+
+Internal structure:
+
+- `EngineGraphicsContext` is the drawing contract (fill, draw image, text, transform translate, and `resetTransform()`).
+- `VulkanGraphicsContext` is the only active implementation. It accumulates a translation offset (`translateX/translateY`); `resetTransform()` zeroes it. This reset is called on scene change so a previous scene's camera offset does not leak into the next scene.
+- `LwjglVulkanFrameRenderer` owns the per-frame vertex buffer. Its capacity is sized for large scenes (tile grids can emit thousands of quads); the buffer is large enough that the last-drawn objects, such as the player, are not truncated. `LwjglVulkanDynamicVertexBuffer.upload(...)` guards against overflow by truncating a frame's excess instead of crashing.
+- `LwjglVulkanSwapchain` prefers `VK_PRESENT_MODE_MAILBOX_KHR` when available, otherwise `VK_PRESENT_MODE_FIFO_KHR` (vsync). With the loop uncapped, present mode is what paces frames.
+
+Interaction patterns:
+
+- Components draw through the `EngineGraphicsContext` exposed by `ControleBase`/`Screen`.
+- The camera component translates the context; `resetTransform()` clears accumulated translation between scenes.
+
+Evolution patterns:
+
+- Keep component drawing against the `graphics` abstraction, not directly against Vulkan types.
+- A new backend would implement `EngineGraphicsContext` under a sibling of `platform.lwjgl` and be selected in `Executor`.
 
 ### Scene Layer
 
@@ -145,6 +204,7 @@ Files:
 
 - [src/br/com/engine/core/Scene.java](src/br/com/engine/core/Scene.java)
 - [src/br/com/engine/core/SceneJs.java](src/br/com/engine/core/SceneJs.java)
+- [src/br/com/engine/resources/ScenesDefinition.java](src/br/com/engine/resources/ScenesDefinition.java)
 - [src/br/com/engine/scenes/Loading.java](src/br/com/engine/scenes/Loading.java)
 - [src/br/com/engine/core/annotation/Bootable.java](src/br/com/engine/core/annotation/Bootable.java)
 
@@ -160,18 +220,22 @@ Internal structure:
 
 - `Scene` contains the runtime collection plus waiting queues.
 - `SceneJs` adapts JSON/script-driven object construction to the same `Scene` contract.
+- `ControleBase` keeps two parallel lists: the live `Scene` instances and their `ScenesDefinition` factories.
 
 Interaction patterns:
 
 - `ControleBase` holds the current scene and swaps it through `nextScene()` and `changeScene()`.
+- `changeScene()` rebuilds a fresh scene instance from `ScenesDefinition.getNewScene()`, replaces the slot in the scene list, resets the graphics transform via `resetTransform()`, and runs the new scene's `setup()`. This avoids stale per-scene field state when re-entering a scene (for example returning to the menu), which a singleton-reuse model previously caused.
 - Scenes invoke `GameObject.setup()` when objects are added.
 - Scenes call collision logic in `fisica.Colisao` during updates.
+- `goToBootScene()` / `getBootScene()` support returning to the boot (menu) scene, used by gameplay scenes bound to ESC.
 
 Evolution patterns:
 
 - New Java scenes extend `Scene`.
 - New boot scenes add the `@Bootable` annotation.
 - Script-driven scenes flow through `SceneJs` and JSON/script manifests rather than new Java subclasses.
+- Do not rely on scene fields persisting across visits; each entry runs `setup()` on a fresh instance.
 
 ### Entity And Component Model
 
@@ -206,6 +270,11 @@ Evolution patterns:
 - Extend `SimpleComponent` when parent access is needed.
 - Implement `IComponent` directly for stateless or utility behaviors.
 - Avoid direct mutation of scene collections inside component logic; use scene APIs instead.
+
+Sprite and animation note:
+
+- [src/br/com/engine/componentes/drawable/Sprite.java](src/br/com/engine/componentes/drawable/Sprite.java) slices a sheet into a **uniform** `cx` by `cy` grid (equal-size cells). Sprite sheets must therefore be uniform; non-uniform frames drift and clip.
+- [src/br/com/engine/componentes/scripts/Animator.java](src/br/com/engine/componentes/scripts/Animator.java) advances cell indices on a millisecond `interval` and calls `Sprite.setSprite(index)`. Because it accumulates the `update(long time)` millis, the timing relies on `ControleBase` delivering accurate per-frame millis (now derived from `nanoTime` with carry).
 
 ### Resource And Configuration Layer
 
@@ -250,22 +319,24 @@ Files:
 
 Purpose and responsibility:
 
-- Provide input state and callbacks through AWT keyboard and mouse events.
+- Provide input state and callbacks sourced from GLFW keyboard and mouse events.
 - Make input globally accessible to engine scripts and components.
 
 Internal structure:
 
 - Keyboard and mouse handlers are singletons.
 - Input state is stored in memory and queried during update logic.
+- Key identifiers are normalized through [src/br/com/engine/input/KeyCode.java](src/br/com/engine/input/KeyCode.java) and `KeyMap`.
 
 Interaction patterns:
 
-- `Executor` attaches handlers to the engine canvas hosted by the Swing frame.
-- Scripts and components consume input through those singleton instances.
+- The GLFW window registers input callbacks that feed the keyboard and mouse singletons.
+- Scripts and components consume input through those singleton instances (for example `KeyBoard.infInstace().ifKeyPressed(KeyCode.X, ...)`).
 
 Evolution patterns:
 
-- New input behaviors should preserve the existing event-handler model to avoid diverging runtime access patterns.
+- New input behaviors should preserve the existing singleton event-handler model to avoid diverging runtime access patterns.
+- External tools cannot synthesize GLFW key events, so input-dependent behavior is validated manually.
 
 ### Physics And Collision Layer
 
@@ -299,18 +370,20 @@ Evolution patterns:
 
 The practical layers are:
 
-1. Bootstrap layer: `main`.
-2. Runtime orchestration layer: `core`.
-3. Domain behavior layer: `componentes`, `fisica`, `input`.
-4. Support and content layer: `resources`.
-5. Scenario implementations: `scenes`.
-6. Contract layer: `interfaces`.
+1. Bootstrap layer: `main` (selects backend, owns the Vulkan main loop).
+2. Runtime orchestration layer: `core` (includes the `Time` service).
+3. Rendering and platform layer: `graphics` (backend-neutral) and `platform.lwjgl` (Vulkan/GLFW).
+4. Domain behavior layer: `componentes`, `fisica`, `input`.
+5. Support and content layer: `resources`.
+6. Scenario implementations: `scenes`.
+7. Contract layer: `interfaces`.
 
 Dependency rules visible in code:
 
-- `main` depends on `core` and the desktop windowing layer.
-- `core` depends on `resources`, `input`, `interfaces`, and physics utilities.
-- Components depend on `core` and `interfaces`.
+- `main` depends on `core` and the Vulkan/GLFW platform layer.
+- `core` depends on `resources`, `input`, `interfaces`, physics utilities, and the `graphics` abstraction.
+- Components depend on `core`, `interfaces`, and `graphics` (not directly on Vulkan types).
+- `platform.lwjgl` implements `graphics` and depends on LWJGL/GLFW/Vulkan bindings.
 - `resources` is largely utility-style and independent of scene orchestration, but returns types consumed by `core` and `componentes`.
 - `scenes` depend on `core`, resources, and components.
 
@@ -364,7 +437,8 @@ Not implemented. This is a local game engine runtime without identity boundaries
 Current pattern:
 
 - Most subsystems catch `Exception`, print stack traces, and either continue or return `null`.
-- `MainLoopFx` wraps the main frame callback, prints the exception, calls `tearDown()`, exits the process, and then throws a runtime exception.
+- The active main loop in `LwjglVulkanExecutor` runs inside a try/finally that tears down the engine and terminates GLFW on exit; scene `setup` is wrapped so a failing scene prints its stack trace instead of killing the loop.
+- The Vulkan vertex buffer guards against overflow by truncating an over-budget frame and logging, rather than throwing a `BufferOverflowException`.
 - Resource loading often signals failure via `null` or unchecked exceptions.
 
 Implications:
