@@ -230,7 +230,7 @@ public class ContentLoader
 		try
 		{
 			java.awt.Font awtFont = java.awt.Font.createFont( java.awt.Font.TRUETYPE_FONT, path.toFile( ) ).deriveFont( ((Number)data.get( "size" )).floatValue( ) );
-			return new Font( awtFont );
+			return new Font( awtFont, path.toFile( ) );
 		}
 		catch( java.awt.FontFormatException | IOException exception )
 		{

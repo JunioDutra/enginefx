@@ -1,30 +1,25 @@
 package br.com.engine.input;
 
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
 import java.util.Collection;
 import java.util.HashSet;
 
-public class KeyBoard implements KeyListener
+public class KeyBoard
 {
     private static KeyBoard instance;
 
     private Collection<KeyCode> lstCurrent = new HashSet<KeyCode>( );
     
-	public static KeyBoard infInstace( )
-	{
-	    if( instance == null )
-	    {
-	        instance = new KeyBoard( );
-	    }
-	    
+        public static KeyBoard infInstace( )
+        {
+            if( instance == null )
+            {
+                instance = new KeyBoard( );
+            }
+            
         return instance;
-	}
-	
-	private KeyBoard( )
-	{
-	    
-    }
+        }
+
+        private KeyBoard( ) { }
 
     public void ifKeyPressed( KeyCode key, Runnable run )
     {
@@ -37,27 +32,16 @@ public class KeyBoard implements KeyListener
         } );
     }
 
-    @Override
-    public void keyTyped( KeyEvent event )
+    public void press( KeyCode code )
     {
-    }
-
-    @Override
-    public void keyPressed( KeyEvent event )
-    {
-        KeyCode code = KeyCode.fromAwt( event.getKeyCode( ) );
-
         if( code != null )
         {
             lstCurrent.add( code );
         }
     }
 
-    @Override
-    public void keyReleased( KeyEvent event )
+    public void release( KeyCode code )
     {
-        KeyCode code = KeyCode.fromAwt( event.getKeyCode( ) );
-
         if( code != null )
         {
             lstCurrent.remove( code );

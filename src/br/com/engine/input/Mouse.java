@@ -1,57 +1,43 @@
 package br.com.engine.input;
 
-import java.awt.event.MouseListener;
 import java.util.ArrayList;
 import java.util.List;
 
 import br.com.engine.interfaces.IMouseClick;
 
-public class Mouse implements MouseListener
+public class Mouse
 {
-	private static Mouse instance;
-	
-	private List<IMouseClick> onClick = new ArrayList<>( );
-	
-	private Mouse( ){ }
+    private static Mouse instance;
 
-	public static Mouse infInstace( )
-	{
-	    if( instance == null )
-	    {
-	        instance = new Mouse( );
-	    }
-	    
+    private List<IMouseClick> onClick = new ArrayList<>( );
+
+    private Mouse( ){ }
+
+    public static Mouse infInstace( )
+    {
+        if( instance == null )
+        {
+            instance = new Mouse( );
+        }
         return instance;
-	}
-	
-	public void addListener( IMouseClick onClick ) {
-		this.onClick.add( onClick );
-	}
+    }
 
-	@Override
-	public void mouseClicked( java.awt.event.MouseEvent event )
-	{
-		MouseEvent convertedEvent = MouseEvent.fromAwt( event );
-		onClick.forEach( listener -> listener.onClick( convertedEvent ) );
-	}
+    public void addListener( IMouseClick click )
+    {
+        onClick.add( click );
+    }
 
-	@Override
-	public void mousePressed( java.awt.event.MouseEvent event )
-	{
-	}
+    public void click( double x, double y )
+    {
+        MouseEvent event = new MouseEvent( x, y );
+        for( IMouseClick iMouseClick : onClick )
+        {
+            iMouseClick.onClick( event );
+        }
+    }
 
-	@Override
-	public void mouseReleased( java.awt.event.MouseEvent event )
-	{
-	}
-
-	@Override
-	public void mouseEntered( java.awt.event.MouseEvent event )
-	{
-	}
-
-	@Override
-	public void mouseExited( java.awt.event.MouseEvent event )
-	{
-	}
+    public void clear( )
+    {
+        onClick.clear( );
+    }
 }

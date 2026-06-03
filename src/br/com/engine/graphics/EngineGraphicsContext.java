@@ -30,5 +30,7 @@ public interface EngineGraphicsContext
 
 	void translate( double x, double y );
 
+	void resetTransform( );
+
 	EngineGraphicsTransform getTransform( );
 }

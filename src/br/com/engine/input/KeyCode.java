@@ -2,49 +2,48 @@ package br.com.engine.input;
 
 public enum KeyCode
 {
-	UP( java.awt.event.KeyEvent.VK_UP ),
-	DOWN( java.awt.event.KeyEvent.VK_DOWN ),
-	LEFT( java.awt.event.KeyEvent.VK_LEFT ),
-	RIGHT( java.awt.event.KeyEvent.VK_RIGHT ),
-	SPACE( java.awt.event.KeyEvent.VK_SPACE ),
-	ENTER( java.awt.event.KeyEvent.VK_ENTER ),
-	ESCAPE( java.awt.event.KeyEvent.VK_ESCAPE ),
-	CONTROL( java.awt.event.KeyEvent.VK_CONTROL ),
-	SHIFT( java.awt.event.KeyEvent.VK_SHIFT ),
-	ALT( java.awt.event.KeyEvent.VK_ALT ),
-	TAB( java.awt.event.KeyEvent.VK_TAB ),
-	W( java.awt.event.KeyEvent.VK_W ),
-	A( java.awt.event.KeyEvent.VK_A ),
-	S( java.awt.event.KeyEvent.VK_S ),
-	D( java.awt.event.KeyEvent.VK_D ),
-	Q( java.awt.event.KeyEvent.VK_Q ),
-	E( java.awt.event.KeyEvent.VK_E ),
-	Z( java.awt.event.KeyEvent.VK_Z ),
-	X( java.awt.event.KeyEvent.VK_X ),
-	C( java.awt.event.KeyEvent.VK_C );
+    UP( org.lwjgl.glfw.GLFW.GLFW_KEY_UP ),
+    DOWN( org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN ),
+    LEFT( org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT ),
+    RIGHT( org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT ),
+    SPACE( org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE ),
+    ENTER( org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER ),
+    ESCAPE( org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE ),
+    CONTROL( org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_CONTROL ),
+    SHIFT( org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT ),
+    ALT( org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT ),
+    TAB( org.lwjgl.glfw.GLFW.GLFW_KEY_TAB ),
+    W( org.lwjgl.glfw.GLFW.GLFW_KEY_W ),
+    A( org.lwjgl.glfw.GLFW.GLFW_KEY_A ),
+    S( org.lwjgl.glfw.GLFW.GLFW_KEY_S ),
+    D( org.lwjgl.glfw.GLFW.GLFW_KEY_D ),
+    Q( org.lwjgl.glfw.GLFW.GLFW_KEY_Q ),
+    E( org.lwjgl.glfw.GLFW.GLFW_KEY_E ),
+    Z( org.lwjgl.glfw.GLFW.GLFW_KEY_Z ),
+    X( org.lwjgl.glfw.GLFW.GLFW_KEY_X ),
+    C( org.lwjgl.glfw.GLFW.GLFW_KEY_C );
 
-	private final int keyCode;
+    private final int code;
 
-	KeyCode( int keyCode )
-	{
-		this.keyCode = keyCode;
-	}
+    KeyCode( int code )
+    {
+        this.code = code;
+    }
 
-	public int getKeyCode( )
-	{
-		return keyCode;
-	}
+    public int getCode( )
+    {
+        return code;
+    }
 
-	public static KeyCode fromAwt( int keyCode )
-	{
-		for( KeyCode code : values( ) )
-		{
-			if( code.keyCode == keyCode )
-			{
-				return code;
-			}
-		}
-
-		return null;
-	}
+    public static KeyCode fromGlfw( int glfwKeyCode )
+    {
+        for( KeyCode k : values( ) )
+        {
+            if( k.code == glfwKeyCode )
+            {
+                return k;
+            }
+        }
+        return null;
+    }
 }

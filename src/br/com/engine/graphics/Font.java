@@ -6,6 +6,7 @@ import java.awt.image.BufferedImage;
 public class Font
 {
 	private final java.awt.Font awtFont;
+	private java.io.File sourceFile;
 
 	public Font( String name, int size )
 	{
@@ -15,6 +16,17 @@ public class Font
 	public Font( java.awt.Font awtFont )
 	{
 		this.awtFont = awtFont;
+	}
+
+	public Font( java.awt.Font awtFont, java.io.File sourceFile )
+	{
+		this.awtFont = awtFont;
+		this.sourceFile = sourceFile;
+	}
+
+	public java.io.File getSourceFile( )
+	{
+		return sourceFile;
 	}
 
 	public java.awt.Font toAwtFont( )
