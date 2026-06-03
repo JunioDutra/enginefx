@@ -2,9 +2,9 @@ package br.com.engine.componentes.physics;
 
 import br.com.engine.componentes.SimpleComponent;
 import br.com.engine.core.Vector2;
+import br.com.engine.geometry.Rectangle;
 import br.com.engine.interfaces.CubeColisor;
 import br.com.engine.interfaces.OnColisionAction;
-import javafx.scene.shape.Rectangle;
 
 public class CustomCubeColisor extends SimpleComponent implements CubeColisor
 {

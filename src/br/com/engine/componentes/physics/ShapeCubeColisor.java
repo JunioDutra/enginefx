@@ -2,9 +2,9 @@ package br.com.engine.componentes.physics;
 
 import br.com.engine.componentes.SimpleComponent;
 import br.com.engine.componentes.drawable.Cube;
+import br.com.engine.geometry.Rectangle;
 import br.com.engine.interfaces.CubeColisor;
 import br.com.engine.interfaces.OnColisionAction;
-import javafx.scene.shape.Rectangle;
 
 public class ShapeCubeColisor extends SimpleComponent implements CubeColisor
 {
@@ -21,7 +21,7 @@ public class ShapeCubeColisor extends SimpleComponent implements CubeColisor
 	{
 		if( getParent( ).getComponent( Cube.class ) == null )
 		{
-			throw new RuntimeException( "Erro ao criar colisor para Cube, o GameObject não possue cube's!" );
+			throw new RuntimeException( "Erro ao criar colisor para Cube, o GameObject nï¿½o possue cube's!" );
 		}
 		
 		Cube cube = getParent( ).getComponent( Cube.class );

@@ -27,9 +27,11 @@ import com.google.gson.JsonIOException;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 
-import javafx.scene.image.Image;
-import javafx.scene.media.AudioClip;
-import javafx.scene.text.Font;
+import javax.imageio.ImageIO;
+
+import br.com.engine.audio.AudioClip;
+import br.com.engine.graphics.Font;
+import br.com.engine.graphics.Image;
 
 public class ContentLoader 
 {
@@ -181,11 +183,14 @@ public class ContentLoader
 	
 	private static Object loadImage( Path path ) throws FileNotFoundException
 	{
-		Image image = null;
-		
-		image = new Image( new FileInputStream( path.toFile( ) ) );
-		
-		return image;
+		try
+		{
+			return new Image( ImageIO.read( path.toFile( ) ) );
+		}
+		catch( IOException exception )
+		{
+			throw new RuntimeException( exception );
+		}
 	}
 	
 	private static Object loadConfigs( Path path ) throws FileNotFoundException, IOException
@@ -199,7 +204,7 @@ public class ContentLoader
 	
 	private static Object loadAudio( Path path )
 	{
-		return new AudioClip( path.toUri().toString() );
+		return new AudioClip( path );
 	}
 	
 	private static Object loadScript( Path path, Map<String, Object> data ) throws FileNotFoundException, ScriptException
@@ -222,7 +227,15 @@ public class ContentLoader
 	
 	private static Object loadFont( Path path, Map<String, Object> data ) throws FileNotFoundException
 	{
-		return Font.loadFont( new FileInputStream(  path.toFile( ) ), (int)data.get( "size" ) );
+		try
+		{
+			java.awt.Font awtFont = java.awt.Font.createFont( java.awt.Font.TRUETYPE_FONT, path.toFile( ) ).deriveFont( ((Number)data.get( "size" )).floatValue( ) );
+			return new Font( awtFont );
+		}
+		catch( java.awt.FontFormatException | IOException exception )
+		{
+			throw new RuntimeException( exception );
+		}
 	}
 
 	private static Object loadJson( Path path ) throws JsonSyntaxException, JsonIOException, FileNotFoundException

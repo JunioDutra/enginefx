@@ -2,9 +2,9 @@ package br.com.engine.componentes.physics;
 
 import br.com.engine.componentes.SimpleComponent;
 import br.com.engine.componentes.drawable.Sprite;
+import br.com.engine.geometry.Rectangle;
 import br.com.engine.interfaces.CubeColisor;
 import br.com.engine.interfaces.OnColisionAction;
-import javafx.scene.shape.Rectangle;
 
 public class SpriteColisor extends SimpleComponent implements CubeColisor
 {
@@ -19,7 +19,7 @@ public class SpriteColisor extends SimpleComponent implements CubeColisor
 	{
 		if( getParent( ).getComponent( Sprite.class ) == null )
 		{
-			throw new RuntimeException( "Erro ao criar colisor para sprite, o GameObject não possue sprites!" );
+			throw new RuntimeException( "Erro ao criar colisor para sprite, o GameObject nï¿½o possue sprites!" );
 		}
 		
 		Sprite sprite = getParent( ).getComponent( Sprite.class );

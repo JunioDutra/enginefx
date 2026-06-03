@@ -1,13 +1,12 @@
 package br.com.engine.input;
 
+import java.awt.event.MouseListener;
 import java.util.ArrayList;
 import java.util.List;
 
 import br.com.engine.interfaces.IMouseClick;
-import javafx.event.EventHandler;
-import javafx.scene.input.MouseEvent;
 
-public class Mouse  implements EventHandler<MouseEvent>
+public class Mouse implements MouseListener
 {
 	private static Mouse instance;
 	
@@ -25,13 +24,34 @@ public class Mouse  implements EventHandler<MouseEvent>
         return instance;
 	}
 	
-	@Override
-	public void handle( MouseEvent event ) 
-	{
-		onClick.forEach( r -> r.onClick( event ) );
-	}
-	
 	public void addListener( IMouseClick onClick ) {
 		this.onClick.add( onClick );
+	}
+
+	@Override
+	public void mouseClicked( java.awt.event.MouseEvent event )
+	{
+		MouseEvent convertedEvent = MouseEvent.fromAwt( event );
+		onClick.forEach( listener -> listener.onClick( convertedEvent ) );
+	}
+
+	@Override
+	public void mousePressed( java.awt.event.MouseEvent event )
+	{
+	}
+
+	@Override
+	public void mouseReleased( java.awt.event.MouseEvent event )
+	{
+	}
+
+	@Override
+	public void mouseEntered( java.awt.event.MouseEvent event )
+	{
+	}
+
+	@Override
+	public void mouseExited( java.awt.event.MouseEvent event )
+	{
 	}
 }

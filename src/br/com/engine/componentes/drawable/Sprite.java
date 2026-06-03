@@ -4,10 +4,10 @@ import java.awt.Point;
 import java.util.HashMap;
 import java.util.Map;
 
-import javafx.scene.image.Image;
 import br.com.engine.componentes.SimpleComponent;
 import br.com.engine.core.ControleBase;
 import br.com.engine.core.Vector2;
+import br.com.engine.graphics.Image;
 import br.com.engine.resources.ResourceManager;
 
 public class Sprite extends SimpleComponent
@@ -32,7 +32,7 @@ public class Sprite extends SimpleComponent
 	protected Sprite( ) { }
 	
 	/**
-	 * Método utilizado para contruir sprites multiplos.
+	 * Mï¿½todo utilizado para contruir sprites multiplos.
 	 * @param image
 	 * @param cx
 	 * @param cy
@@ -47,7 +47,7 @@ public class Sprite extends SimpleComponent
 	}
 	
 	/**
-	 * Método utilizado para contruir sprites Unicos.
+	 * Mï¿½todo utilizado para contruir sprites Unicos.
 	 * @param image
 	 */
 	public Sprite( String image )
@@ -160,7 +160,7 @@ public class Sprite extends SimpleComponent
 	}
 	
 	/**
-	 * Ajusta o Sprite corrente caso ele seja multiplo, do contrario lança uma exceção
+	 * Ajusta o Sprite corrente caso ele seja multiplo, do contrario lanï¿½a uma exceï¿½ï¿½o
 	 * 
 	 * @param index indice do sprite
 	 */

@@ -3,8 +3,7 @@ package br.com.engine.componentes.builders;
 import br.com.engine.componentes.drawable.SpriteFont;
 import br.com.engine.core.ControleBase;
 import br.com.engine.core.GameObject;
-import br.com.engine.core.Screen;
-import javafx.scene.paint.Color;
+import br.com.engine.graphics.Color;
 
 public class SpriteFontBuilder 
 {

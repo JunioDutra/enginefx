@@ -7,18 +7,15 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
 import br.com.engine.core.annotation.Bootable;
+import br.com.engine.graphics.Color;
+import br.com.engine.graphics.EngineGraphicsContext;
+import br.com.engine.graphics.Paint;
 import br.com.engine.input.KeyBoard;
 import br.com.engine.input.Mouse;
 import br.com.engine.interfaces.LoopSteps;
 import br.com.engine.resources.Configurations;
 import br.com.engine.resources.ResourceManager;
 import br.com.engine.scenes.Loading;
-import javafx.concurrent.Task;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.input.KeyEvent;
-import javafx.scene.input.MouseEvent;
-import javafx.scene.paint.Color;
-import javafx.scene.paint.Paint;
 
 public class ControleBase implements LoopSteps
 {
@@ -37,7 +34,7 @@ public class ControleBase implements LoopSteps
 	private int     nNextScene = -1;
 	private int     nLastScene = -1;
 
-	private GraphicsContext graphics;
+	private EngineGraphicsContext graphics;
 
 	/*
 	 * Para quando o modo de debug estiver ativado 
@@ -52,8 +49,8 @@ public class ControleBase implements LoopSteps
 		configurations = ResourceManager.loadResource( null, ResourceManager.CONFIGURACOES, Configurations.class );
 		
 		screen = new Screen( configurations.getSizeW(), configurations.getSizeH() );
-		getScreen().getCanvas( ).addEventHandler( KeyEvent.KEY_PRESSED, KeyBoard.infInstace( ) );
-		getScreen().getCanvas( ).addEventHandler( MouseEvent.MOUSE_CLICKED, Mouse.infInstace() );
+		getScreen().getCanvas( ).addKeyListener( KeyBoard.infInstace( ) );
+		getScreen().getCanvas( ).addMouseListener( Mouse.infInstace() );
 		
 		this.scenes = new ArrayList<Scene>( );
 	}
@@ -99,7 +96,7 @@ public class ControleBase implements LoopSteps
 			gameLogic.update( time );
 		}
 					
-		//Grava o tempo na saída do método
+		//Grava o tempo na saï¿½da do mï¿½todo
 		previous = System.currentTimeMillis( );
 		
 		framesRender++;
@@ -108,7 +105,7 @@ public class ControleBase implements LoopSteps
 	@Override
 	public void renderGraphics( ) 
 	{
-		GraphicsContext g = getScreen().getGraphicsContext( );
+		EngineGraphicsContext g = getScreen().getGraphicsContext( );
 		
 		//Limpamos a tela
 		g.setFill( Color.WHITE );
@@ -133,7 +130,7 @@ public class ControleBase implements LoopSteps
 		}
 	}
 	
-	private void save( GraphicsContext graphics2 ) 
+	private void save( EngineGraphicsContext graphics2 ) 
 	{
 //		BufferedImage image = new BufferedImage( (int)Screen.getScreen().getWidth(), (int)Screen.getScreen().getHeight(), ImageType.RGB.ordinal() );
 //		
@@ -166,7 +163,7 @@ public class ControleBase implements LoopSteps
 	@Override
 	public void paintScreen( )
 	{
-	    
+		getScreen( ).present( );
 	}
 
 	/**
@@ -192,16 +189,9 @@ public class ControleBase implements LoopSteps
 			Scene scene = scenes.get( nNextScene );
 			scene.clearScene( );
 			
-			Task<Integer> task = new Task<Integer>( )
-			{
-				@Override
-				protected Integer call( ) throws Exception 
-				{
-					scene.setup( );
-					gameLogic = scene;
-					
-					return 0;
-				}
+			Runnable task = ( ) -> {
+				scene.setup( );
+				gameLogic = scene;
 			};
 			
 			ScheduledExecutorService ses = Executors.newScheduledThreadPool( 2 );
@@ -228,7 +218,7 @@ public class ControleBase implements LoopSteps
 		loop.stop( );
 	}
 
-	public GraphicsContext getGraphics2d( )
+	public EngineGraphicsContext getGraphics2d( )
 	{
 		if( graphics == null )
 		{

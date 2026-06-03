@@ -2,16 +2,15 @@ package br.com.engine.componentes.physics;
 
 import br.com.engine.componentes.SimpleComponent;
 import br.com.engine.core.Vector2;
+import br.com.engine.geometry.Rectangle;
 import br.com.engine.interfaces.CubeColisor;
 import br.com.engine.interfaces.OnColisionAction;
-import javafx.scene.shape.Circle;
-import javafx.scene.shape.Rectangle;
 
 public class OvalCustomCubeColisor extends SimpleComponent implements CubeColisor
 {
 	private String tag;
 	
-	private Circle circle;
+	private Rectangle rectangle;
 	
 	private OnColisionAction onColisionAction;
 	
@@ -27,7 +26,7 @@ public class OvalCustomCubeColisor extends SimpleComponent implements CubeColiso
 	@Override
 	public void setup( )
 	{
-		circle = new Circle( 0, 0, radius );
+		rectangle = new Rectangle( 0, 0, radius * 2, radius * 2 );
 	}
 	
 	@Override
@@ -54,12 +53,9 @@ public class OvalCustomCubeColisor extends SimpleComponent implements CubeColiso
 	@Override
 	public Rectangle getRectangle( )
 	{
-		circle.setCenterX( getParent( ).getPosition( ).getX( )+position.getX( ) );
-		circle.setCenterY( getParent( ).getPosition( ).getY( )+position.getY( ) );
-		
-		circle.intersects(0, 0, 0, 0);
-		
-		return null;//TODO: verificar
+		rectangle.setX( getParent( ).getPosition( ).getX( ) + position.getX( ) - radius );
+		rectangle.setY( getParent( ).getPosition( ).getY( ) + position.getY( ) - radius );
+		return rectangle;
 	}
 	
 	public void setTag(String tag) {

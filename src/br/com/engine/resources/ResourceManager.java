@@ -25,9 +25,9 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
-import javafx.scene.image.Image;
-import javafx.scene.media.AudioClip;
-import javafx.scene.text.Font;
+import br.com.engine.audio.AudioClip;
+import br.com.engine.graphics.Font;
+import br.com.engine.graphics.Image;
 
 public class ResourceManager 
 {

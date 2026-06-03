@@ -11,8 +11,8 @@ import br.com.engine.componentes.debug.SpriteDebug;
 import br.com.engine.componentes.drawable.Sprite;
 import br.com.engine.componentes.scripts.Camera;
 import br.com.engine.fisica.Colisao;
+import br.com.engine.graphics.EngineGraphicsContext;
 import br.com.engine.interfaces.CubeColisor;
-import javafx.scene.canvas.GraphicsContext;
 
 
 public abstract class Scene
@@ -40,7 +40,7 @@ public abstract class Scene
 		return getClass().getSimpleName();
 	}
 	
-	public void draw( GraphicsContext g2 ) 
+	public void draw( EngineGraphicsContext g2 ) 
 	{
 		lGameObjects.forEach( item -> 
 			item.getComponentes( ).forEach( componente -> componente.draw( ) )

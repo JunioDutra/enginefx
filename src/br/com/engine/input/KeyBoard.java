@@ -1,13 +1,11 @@
 package br.com.engine.input;
 
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.util.Collection;
 import java.util.HashSet;
 
-import javafx.event.EventHandler;
-import javafx.scene.input.KeyCode;
-import javafx.scene.input.KeyEvent;
-
-public class KeyBoard implements EventHandler<KeyEvent>
+public class KeyBoard implements KeyListener
 {
     private static KeyBoard instance;
 
@@ -28,19 +26,6 @@ public class KeyBoard implements EventHandler<KeyEvent>
 	    
     }
 
-    @Override
-    public void handle( KeyEvent event )
-    {
-        if( event.getEventType( ) == KeyEvent.KEY_PRESSED )
-        {
-            lstCurrent.add( event.getCode( ) );
-        }
-        else if( event.getEventType( ) == KeyEvent.KEY_RELEASED )
-        {
-            lstCurrent.removeIf( item -> item.ordinal( ) == event.getCode( ).ordinal( ) );
-        }
-    }
-
     public void ifKeyPressed( KeyCode key, Runnable run )
     {
         lstCurrent.stream( ).forEach( code -> 
@@ -50,5 +35,32 @@ public class KeyBoard implements EventHandler<KeyEvent>
                 run.run( );
             }
         } );
+    }
+
+    @Override
+    public void keyTyped( KeyEvent event )
+    {
+    }
+
+    @Override
+    public void keyPressed( KeyEvent event )
+    {
+        KeyCode code = KeyCode.fromAwt( event.getKeyCode( ) );
+
+        if( code != null )
+        {
+            lstCurrent.add( code );
+        }
+    }
+
+    @Override
+    public void keyReleased( KeyEvent event )
+    {
+        KeyCode code = KeyCode.fromAwt( event.getKeyCode( ) );
+
+        if( code != null )
+        {
+            lstCurrent.remove( code );
+        }
     }
 }

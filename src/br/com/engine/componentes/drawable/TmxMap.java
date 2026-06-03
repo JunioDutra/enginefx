@@ -18,12 +18,10 @@ import br.com.engine.componentes.builders.Colisors;
 import br.com.engine.componentes.physics.CustomCubeColisor;
 import br.com.engine.core.ControleBase;
 import br.com.engine.core.Vector2;
+import br.com.engine.graphics.EngineGraphicsContext;
+import br.com.engine.graphics.Image;
 import br.com.engine.interfaces.CubeColisor;
 import br.com.engine.resources.ResourceManager;
-import javafx.embed.swing.SwingFXUtils;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.image.Image;
-import javafx.scene.image.WritableImage;
 
 public class TmxMap extends SimpleComponent
 {
@@ -90,10 +88,7 @@ public class TmxMap extends SimpleComponent
 							}
 							
 							BufferedImage image = (BufferedImage)tile.getImage( );
-							
-							Image fxImage = SwingFXUtils.toFXImage(image, new WritableImage(image.getWidth(), image.getHeight()));
-							
-							images.put( fxImage, new Vector2( x*image.getWidth( ), y*image.getHeight() ) );
+							images.put( new Image( image ), new Vector2( x*image.getWidth( ), y*image.getHeight() ) );
 						}	
 					}
 					
@@ -110,7 +105,7 @@ public class TmxMap extends SimpleComponent
 	@Override
 	public void draw( )
 	{
-		GraphicsContext g = ControleBase.getInstance( ).getGraphics2d( );
+		EngineGraphicsContext g = ControleBase.getInstance( ).getGraphics2d( );
 
 		Vector2 position = getParent( ).getPosition();
 		

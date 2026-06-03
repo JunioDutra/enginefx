@@ -1,6 +1,6 @@
 package br.com.engine.componentes.scripts;
 
-import javafx.scene.input.KeyCode;
+import br.com.engine.input.KeyCode;
 import br.com.engine.componentes.SimpleComponent;
 import br.com.engine.input.KeyBoard;
 

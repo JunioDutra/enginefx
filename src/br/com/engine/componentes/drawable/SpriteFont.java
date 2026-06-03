@@ -8,12 +8,11 @@ import org.apache.commons.lang3.StringUtils;
 import br.com.engine.componentes.SimpleComponent;
 import br.com.engine.core.ControleBase;
 import br.com.engine.core.Vector2;
+import br.com.engine.graphics.Color;
+import br.com.engine.graphics.EngineGraphicsContext;
+import br.com.engine.graphics.Font;
+import br.com.engine.graphics.VPos;
 import br.com.engine.resources.ResourceManager;
-import javafx.geometry.VPos;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.Text;
 
 public class SpriteFont extends SimpleComponent
 {
@@ -23,9 +22,8 @@ public class SpriteFont extends SimpleComponent
 	private int     fontSize;
 	
 	private Font font;
-	private Text text;
 	
-	private GraphicsContext graphics;   
+	private EngineGraphicsContext graphics;   
 	
 	private String fontName;
 
@@ -58,9 +56,6 @@ public class SpriteFont extends SimpleComponent
 		fontSize = 20;
 		
 		loadFont( );
-		
-		text = new Text( getTexto( ) );
-		text.setFont( font );
 	}
 	
 	@Override
@@ -95,7 +90,7 @@ public class SpriteFont extends SimpleComponent
 
 	public double getStringWidth( )
     {
-	    return new Text( getTexto( ) ).getLayoutBounds( ).getWidth( );
+	    return font.getStringWidth( getTexto( ) );
     }
 	
 	public void setText( String text )
@@ -157,12 +152,12 @@ public class SpriteFont extends SimpleComponent
 	
 	public int getWidth( )
 	{
-		return (int)this.text.getLayoutBounds( ).getWidth( );
+		return font.getStringWidth( getTexto( ) );
 	}
 	
 	public int getHeight( )
 	{
-		return (int)this.text.getLayoutBounds( ).getHeight( );
+		return font.getHeight( );
 	}
 	
 	private String getFontName() {

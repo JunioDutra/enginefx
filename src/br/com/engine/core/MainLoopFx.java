@@ -1,15 +1,12 @@
 package br.com.engine.core;
 
-import javafx.animation.KeyFrame;
-import javafx.animation.Timeline;
-import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
-import javafx.util.Duration;
 import br.com.engine.interfaces.LoopSteps;
 
 public class MainLoopFx implements Runnable
 {
-    private LoopSteps game;
+    private final LoopSteps game;
+    private Thread loopThread;
+    private volatile boolean running;
 
     public MainLoopFx( LoopSteps loopSteps )
     {
@@ -24,43 +21,64 @@ public class MainLoopFx implements Runnable
      */
     public void run( )
     {
-        final Timeline timeline = new Timeline();
-        timeline.setCycleCount(Timeline.INDEFINITE);
-        //timeline.setDelay(Duration.seconds(1.0/60.0));        
-        
-        //create a keyFrame, the keyValue is reached at time 2s
-        Duration duration = Duration.seconds(1.0/60.0);
-        
-        //one can add a specific action when the keyframe is reached
-        EventHandler<ActionEvent> onFinished = 
-            actionEvent ->
+        if( running )
+        {
+            return;
+        }
+
+        running = true;
+        loopThread = new Thread( this::loopBody, "enginefx-main-loop" );
+        loopThread.start( );
+    }
+
+    private void loopBody( )
+    {
+        final long frameTimeNanos = 1_000_000_000L / 60L;
+        game.setup( );
+
+        while( running )
+        {
+            long startedAt = System.nanoTime( );
+
+            try
+            {
+                game.processLogics( );
+                game.renderGraphics( );
+                game.paintScreen( );
+            }
+            catch( Exception exception )
+            {
+                exception.printStackTrace( );
+                game.tearDown( );
+                running = false;
+                throw new RuntimeException( "Exception during game loop", exception );
+            }
+
+            long elapsed = System.nanoTime( ) - startedAt;
+            long remaining = frameTimeNanos - elapsed;
+
+            if( remaining > 0 )
             {
                 try
                 {
-                    game.processLogics( );
-                    game.renderGraphics( );
-                    game.paintScreen( );
+                    Thread.sleep( remaining / 1_000_000L, (int)(remaining % 1_000_000L) );
                 }
-                catch( Exception e )
+                catch( InterruptedException exception )
                 {
-                    e.printStackTrace( );
-                    game.tearDown( );
-                    System.exit( 0 );
-                    throw new RuntimeException( "Exception during game loop", e );
+                    Thread.currentThread( ).interrupt( );
+                    running = false;
                 }
-            };
-
-        KeyFrame keyFrame = new KeyFrame( duration, onFinished , null, null );
-
-        //add the keyframe to the timeline
-        timeline.getKeyFrames( ).add( keyFrame );
-
-        game.setup( );
-        timeline.playFromStart( );
+            }
+        }
     }
 
     public void stop( )
     {
-        
+        running = false;
+
+        if( loopThread != null )
+        {
+            loopThread.interrupt( );
+        }
     }
 }

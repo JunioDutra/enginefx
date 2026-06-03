@@ -4,7 +4,7 @@ Guidance for AI coding agents working in this repository.
 
 ## Scope
 
-- This is a Maven-based JavaFX game engine under `src/br/com/engine`.
+- This is a Maven-based desktop game engine under `src/br/com/engine`.
 - The main entry point is [src/br/com/engine/main/Executor.java](src/br/com/engine/main/Executor.java).
 - There is no existing workspace documentation set; use the source as the primary reference.
 - For a detailed architecture reference, see [Project_Architecture_Blueprint.md](Project_Architecture_Blueprint.md).
@@ -16,11 +16,12 @@ Guidance for AI coding agents working in this repository.
 - Tests: no test sources or test framework are configured in `pom.xml`
 - Environment note: this workspace does not include `mvnw`, and in the current environment `mvn` is not on `PATH`; verify Maven is installed before relying on Maven commands.
 - Runtime note: the engine expects asset files under `./res/...` at runtime.
+- Runtime smoke check: `java -cp target/classes br.com.engine.main.EngineSmokeApp`
 
 ## Architecture Anchors
 
 - [src/br/com/engine/core/ControleBase.java](src/br/com/engine/core/ControleBase.java): singleton runtime controller, screen setup, scene switching, and main loop startup.
-- [src/br/com/engine/core/MainLoopFx.java](src/br/com/engine/core/MainLoopFx.java): JavaFX `Timeline` loop calling `setup`, `processLogics`, `renderGraphics`, and `paintScreen`.
+- [src/br/com/engine/core/MainLoopFx.java](src/br/com/engine/core/MainLoopFx.java): thread-based main loop calling `setup`, `processLogics`, `renderGraphics`, and `paintScreen`.
 - [src/br/com/engine/core/Scene.java](src/br/com/engine/core/Scene.java): scene lifecycle, object collection management, deferred add/remove, collision pass.
 - [src/br/com/engine/core/GameObject.java](src/br/com/engine/core/GameObject.java): entity container for components and parent/child propagation.
 - [src/br/com/engine/resources/ResourceManager.java](src/br/com/engine/resources/ResourceManager.java): resource type constants and loading conventions for images, audio, scripts, fonts, maps, and config.
@@ -49,7 +50,7 @@ Guidance for AI coding agents working in this repository.
 - `GameObject.setup()` adds a `VectorMonitor`, so movement side effects can propagate to child objects.
 - Debug mode injects extra debug components when objects are added to a scene.
 - Scene switches are deferred through `ControleBase.nextScene(...)`; do not assume immediate scene replacement.
-- The project targets Java 8 source/target in Maven, but depends on JavaFX 15 artifacts. Be cautious when changing build settings.
+- The project now builds without JavaFX dependencies and uses Swing/Java2D as the temporary desktop backend.
 - Script loading uses Nashorn via `ScriptEngineManager`; avoid introducing assumptions that require a different JS engine unless the task includes runtime/build updates.
 
 ## First Files To Read

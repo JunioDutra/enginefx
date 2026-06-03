@@ -1,6 +1,6 @@
 package br.com.engine.interfaces;
 
-import javafx.scene.shape.Rectangle;
+import br.com.engine.geometry.Rectangle;
 
 public interface CubeColisor extends IComponent
 {

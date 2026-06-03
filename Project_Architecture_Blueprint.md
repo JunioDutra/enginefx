@@ -4,7 +4,7 @@ Generated on June 2, 2026.
 
 ## 1. Architecture Detection And Analysis
 
-This repository is a Java game engine built with Maven and JavaFX. The code targets Java 8 in [pom.xml](pom.xml), uses JavaFX 15 for the runtime UI and rendering surface, GSON for JSON parsing, LibTiled for TMX map loading, Apache Commons Lang for utility support, and Nashorn through `ScriptEngineManager` for JavaScript-based behavior.
+This repository is a Java game engine built with Maven. The code now targets Java 25 in [pom.xml](pom.xml), uses Swing for window bootstrap and Java2D for the temporary rendering surface, GSON for JSON parsing, LibTiled for TMX map loading, Apache Commons Lang for utility support, and Nashorn through `ScriptEngineManager` for JavaScript-based behavior.
 
 The dominant architectural style is a hybrid of:
 
@@ -17,7 +17,7 @@ This is not a DI-container architecture, not a service-oriented system, and not 
 
 ## 2. Architectural Overview
 
-At runtime, JavaFX bootstraps the application in [src/br/com/engine/main/Executor.java](src/br/com/engine/main/Executor.java). From there, [src/br/com/engine/core/ControleBase.java](src/br/com/engine/core/ControleBase.java) becomes the global engine coordinator. It loads configuration, creates the screen, initializes scene instances, and starts the JavaFX `Timeline` loop implemented in [src/br/com/engine/core/MainLoopFx.java](src/br/com/engine/core/MainLoopFx.java).
+At runtime, Swing bootstraps the application in [src/br/com/engine/main/Executor.java](src/br/com/engine/main/Executor.java). From there, [src/br/com/engine/core/ControleBase.java](src/br/com/engine/core/ControleBase.java) becomes the global engine coordinator. It loads configuration, creates the screen, initializes scene instances, and starts the thread-based fixed-step loop implemented in [src/br/com/engine/core/MainLoopFx.java](src/br/com/engine/core/MainLoopFx.java).
 
 The engine models world state through [src/br/com/engine/core/Scene.java](src/br/com/engine/core/Scene.java) and [src/br/com/engine/core/GameObject.java](src/br/com/engine/core/GameObject.java). A scene owns `GameObject` instances. A game object owns a list of components implementing [src/br/com/engine/interfaces/IComponent.java](src/br/com/engine/interfaces/IComponent.java). Those components are responsible for setup, per-frame logic, and drawing.
 
@@ -36,9 +36,9 @@ The resulting architectural principles visible in code are:
 
 ```mermaid
 flowchart TD
-    Executor[Executor JavaFX entry point] --> ControleBase[ControleBase singleton]
-    ControleBase --> MainLoopFx[MainLoopFx Timeline loop]
-    ControleBase --> Screen[Screen Canvas wrapper]
+    Executor[Executor Swing entry point] --> ControleBase[ControleBase singleton]
+    ControleBase --> MainLoopFx[MainLoopFx thread loop]
+    ControleBase --> Screen[Screen Canvas plus BufferedImage wrapper]
     ControleBase --> Config[Configurations]
     ControleBase --> SceneList[Scene instances]
 
@@ -93,7 +93,7 @@ flowchart LR
     scenes --> core
     componentes --> core
     componentes --> interfaces
-    input --> javafx
+    input --> awt
     core --> resources
     core --> input
     core --> interfaces
@@ -120,12 +120,12 @@ Purpose and responsibility:
 - Loads configuration before the main loop starts.
 - Hosts the active scene.
 - Coordinates scene switching and rendering.
-- Exposes the JavaFX graphics context and canvas-backed screen.
+- Exposes the engine graphics context backed by Java2D and a canvas-backed screen.
 
 Internal structure:
 
 - `ControleBase` is a lazily initialized singleton.
-- `MainLoopFx` implements the frame cadence with a JavaFX `Timeline` at $\frac{1}{60}$ seconds per frame.
+- `MainLoopFx` implements the frame cadence with a dedicated thread sleeping toward a $\frac{1}{60}$ seconds per frame target.
 - `LoopSteps` defines the lifecycle contract used by the loop.
 
 Interaction patterns:
@@ -250,7 +250,7 @@ Files:
 
 Purpose and responsibility:
 
-- Provide input state and callbacks through JavaFX events.
+- Provide input state and callbacks through AWT keyboard and mouse events.
 - Make input globally accessible to engine scripts and components.
 
 Internal structure:
@@ -260,7 +260,7 @@ Internal structure:
 
 Interaction patterns:
 
-- `Executor` and `ControleBase` attach handlers to the JavaFX stage and canvas.
+- `Executor` attaches handlers to the engine canvas hosted by the Swing frame.
 - Scripts and components consume input through those singleton instances.
 
 Evolution patterns:
@@ -308,7 +308,7 @@ The practical layers are:
 
 Dependency rules visible in code:
 
-- `main` depends on `core` and JavaFX.
+- `main` depends on `core` and the desktop windowing layer.
 - `core` depends on `resources`, `input`, `interfaces`, and physics utilities.
 - Components depend on `core` and `interfaces`.
 - `resources` is largely utility-style and independent of scene orchestration, but returns types consumed by `core` and `componentes`.
@@ -406,7 +406,7 @@ This codebase does not implement networked or multi-process service communicatio
 Observed communication styles:
 
 - Java method invocation between engine layers.
-- JavaFX event dispatch for input and UI lifecycle.
+- Swing/AWT event dispatch for input and window lifecycle.
 - Script invocation through Nashorn `Invocable`.
 - Reflection-based scene instantiation.
 
@@ -416,17 +416,17 @@ There is no API versioning, service discovery, serialization contract management
 
 ### Java Patterns
 
-- JavaFX `Application` provides the bootstrap lifecycle.
-- A JavaFX `Timeline` is used as the main loop instead of a custom thread loop.
+- Swing `JFrame` plus `Canvas` provide the bootstrap window lifecycle.
+- A custom thread loop is used as the main loop instead of `Timeline`.
 - Reflection is used for scene instantiation from configuration.
 - Interfaces are simple behavioral contracts rather than broad service abstractions.
 - Components and scripts receive engine services through direct object references instead of DI.
 
-### JavaFX Patterns
+### Desktop Runtime Patterns
 
-- Rendering is canvas-based through `GraphicsContext` rather than a retained node tree.
-- Input handlers implement JavaFX `EventHandler`.
-- The stage owns a root `Group` containing the engine canvas.
+- Rendering is canvas-based through an engine-owned graphics context backed by Java2D.
+- Input handlers implement AWT `KeyListener` and `MouseListener`.
+- A Swing `JFrame` owns the engine canvas and presents a `BufferedImage` through `BufferStrategy`.
 
 ### Scripting Patterns
 
@@ -496,7 +496,7 @@ Detected characteristics:
 Operational implication:
 
 - Packaging and launch processes must preserve the expected resource directory layout.
-- Build portability depends on Maven and JavaFX availability in the developer environment.
+- Build portability depends on Maven and a desktop JDK environment with AWT/Swing available.
 
 ## 13. Extension And Evolution Patterns
 
@@ -524,15 +524,14 @@ Operational implication:
 
 ### Layer Separation Example
 
-`Executor` only bootstraps JavaFX and delegates engine control:
+`Executor` only bootstraps the desktop window and delegates engine control:
 
 ```java
-public class Executor extends Application {
-    @Override
-    public void start(Stage primaryStage) {
-        Group root = new Group();
-        root.getChildren().add(ControleBase.getInstance().getScreen().getCanvas());
-        primaryStage.setScene(new Scene(root));
+public class Executor {
+    public void start() {
+        JFrame frame = new JFrame("Enginefx");
+        frame.add(ControleBase.getInstance().getScreen().getCanvas());
+        frame.setVisible(true);
         ControleBase.getInstance().startMainLoop();
     }
 }
@@ -776,8 +775,8 @@ This document describes the architecture implemented in this repository as it ex
 
 - Language: Java
 - Build system: Maven via [pom.xml](pom.xml)
-- UI and rendering runtime: JavaFX 15
-- Rendering model: JavaFX `Canvas` and `GraphicsContext`
+- UI and rendering runtime: Swing plus Java2D temporary desktop backend
+- Rendering model: `Canvas` plus `BufferedImage` plus engine-owned `EngineGraphicsContext`
 - Serialization: Gson
 - Map format support: libtiled TMX reader
 - Scripting: Nashorn via `javax.script`
@@ -787,7 +786,7 @@ This document describes the architecture implemented in this repository as it ex
 
 The engine is primarily a monolithic, layered game runtime with an entity-component style object model.
 
-- Monolithic: all engine concerns live in a single deployable JavaFX application.
+- Monolithic: all engine concerns live in a single deployable desktop application.
 - Layered: startup, runtime control, scene management, components, input, physics, and resources are separated by package responsibility.
 - Entity-component: [src/br/com/engine/core/GameObject.java](src/br/com/engine/core/GameObject.java) composes behavior from `IComponent` implementations rather than from deep inheritance trees.
 - Convention-based resource architecture: resource loading is driven by folder layout and filename conventions in [src/br/com/engine/resources/ResourceManager.java](src/br/com/engine/resources/ResourceManager.java) and [src/br/com/engine/resources/ContentLoader.java](src/br/com/engine/resources/ContentLoader.java).
@@ -801,7 +800,7 @@ The engine is primarily a monolithic, layered game runtime with an entity-compon
 
 ## 2. Architectural Overview
 
-The application starts in JavaFX, initializes a singleton runtime controller, loads configuration and scenes, then enters a fixed-rate loop. Each frame processes logic, checks collisions, and renders the current scene to a JavaFX canvas.
+The application starts in Swing, initializes a singleton runtime controller, loads configuration and scenes, then enters a fixed-rate thread loop. Each frame processes logic, checks collisions, and renders the current scene into a Java2D-backed framebuffer that is presented through the engine canvas.
 
 The architecture centers on these boundaries:
 
@@ -822,7 +821,7 @@ This is not a clean architecture or DI-container-based system. Most dependencies
 flowchart TD
     A[Executor] --> B[ControleBase]
     B --> C[MainLoopFx]
-    B --> D[Screen and JavaFX Canvas]
+    B --> D[Screen and desktop canvas]
     B --> E[Configurations]
     E --> F[ScenesDefinition list]
     F --> G[Scene instances]
@@ -842,7 +841,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[JavaFX Application start] --> B[Executor.start]
+    A[Swing window start] --> B[Executor.start]
     B --> C[ControleBase.getInstance]
     C --> D[Load config and create screen]
     B --> E[Attach keyboard and mouse handlers]
@@ -852,7 +851,7 @@ flowchart TD
     H --> I[Render loading scene]
     H --> J[Instantiate configured scenes]
     H --> K[Queue next scene]
-    G --> L[Timeline 60 FPS]
+    G --> L[Thread loop target 60 FPS]
     L --> M[processLogics]
     M --> N[Scene change if queued]
     M --> O[Current Scene.update]
@@ -893,10 +892,10 @@ The `core` package owns application control, the game loop, screen management, s
 #### Internal structure
 
 - [src/br/com/engine/core/ControleBase.java](src/br/com/engine/core/ControleBase.java): singleton engine controller implementing `LoopSteps`
-- [src/br/com/engine/core/MainLoopFx.java](src/br/com/engine/core/MainLoopFx.java): JavaFX `Timeline` loop wrapper
+- [src/br/com/engine/core/MainLoopFx.java](src/br/com/engine/core/MainLoopFx.java): thread-based fixed-step loop wrapper
 - [src/br/com/engine/core/Scene.java](src/br/com/engine/core/Scene.java): abstract scene base with deferred collection mutation
 - [src/br/com/engine/core/GameObject.java](src/br/com/engine/core/GameObject.java): component container with parent-child propagation
-- [src/br/com/engine/core/Screen.java](src/br/com/engine/core/Screen.java): canvas wrapper for rendering target
+- [src/br/com/engine/core/Screen.java](src/br/com/engine/core/Screen.java): canvas plus framebuffer wrapper for the rendering target
 - [src/br/com/engine/core/Vector2.java](src/br/com/engine/core/Vector2.java): mutable position/value object
 
 #### Interaction patterns
@@ -968,7 +967,7 @@ The `resources` package maps file conventions into runtime objects, loads config
 
 #### Purpose and responsibility
 
-The `input` package provides singleton handlers for keyboard and mouse input using JavaFX event handlers.
+The `input` package provides singleton handlers for keyboard and mouse input using AWT listeners.
 
 #### Internal structure
 
@@ -978,7 +977,7 @@ The `input` package provides singleton handlers for keyboard and mouse input usi
 
 #### Interaction patterns
 
-- `Executor` and `ControleBase` register handlers with the JavaFX stage or canvas.
+- `Executor` registers handlers with the engine canvas hosted inside the Swing frame.
 - Components and scripts query the input singletons at runtime.
 
 #### Evolution patterns
@@ -1113,14 +1112,14 @@ This engine does not expose service boundaries in the usual application sense.
 
 - Communication is in-process only.
 - Coordination is synchronous and method-call based.
-- The main async exception is scene setup being offloaded into a JavaFX `Task` executed by a scheduled executor during scene changes.
+- The main async exception is scene setup being offloaded into a plain Java `Runnable` executed by a scheduled executor during scene changes.
 - No network APIs, RPC, service discovery, or versioned external interfaces are present.
 
 ## 9. Java-Specific Architectural Patterns
 
 ### Bootstrap process
 
-- JavaFX `Application` startup is implemented in [src/br/com/engine/main/Executor.java](src/br/com/engine/main/Executor.java).
+- Swing startup is implemented in [src/br/com/engine/main/Executor.java](src/br/com/engine/main/Executor.java).
 - Runtime initialization is lazy through `ControleBase.getInstance()`.
 
 ### Dependency management
@@ -1178,14 +1177,14 @@ Testing currently depends on manual runtime verification. If automated tests are
 
 ## 12. Deployment Architecture
 
-- Deployment target is a desktop JavaFX application.
+- Deployment target is a desktop Swing/Java2D application.
 - Packaging is Maven-based, but no dedicated launcher plugin or distribution packaging is configured.
 - The runtime expects the `res` directory layout to exist relative to the working directory.
 - No containers, cloud runtime, orchestrators, or environment promotion flows are defined.
 
 ### Runtime dependencies
 
-- JDK with JavaFX dependencies available
+- JDK with desktop AWT/Swing support available
 - filesystem access to `./res`
 - Maven for build-time compilation and packaging
 

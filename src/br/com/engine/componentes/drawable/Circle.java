@@ -2,7 +2,7 @@ package br.com.engine.componentes.drawable;
 
 import br.com.engine.componentes.SimpleComponent;
 import br.com.engine.core.ControleBase;
-import javafx.scene.paint.Color;
+import br.com.engine.graphics.Color;
 
 public class Circle extends SimpleComponent
 {

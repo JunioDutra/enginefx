@@ -6,9 +6,9 @@ import java.util.Map;
 
 import br.com.engine.componentes.drawable.Sprite;
 import br.com.engine.core.GameObject;
+import br.com.engine.geometry.Rectangle;
 import br.com.engine.input.KeyMap;
 import br.com.engine.interfaces.CubeColisor;
-import javafx.scene.shape.Rectangle;
 
 public final class Colisao 
 {

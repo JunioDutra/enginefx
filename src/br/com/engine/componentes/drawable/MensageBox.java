@@ -7,15 +7,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.image.Image;
-import javafx.scene.input.KeyCode;
 import br.com.engine.componentes.SimpleComponent;
 import br.com.engine.componentes.builders.ScriptBuilder;
 import br.com.engine.core.ControleBase;
-import br.com.engine.core.Screen;
 import br.com.engine.core.Vector2;
+import br.com.engine.graphics.EngineGraphicsContext;
+import br.com.engine.graphics.Image;
 import br.com.engine.input.KeyBoard;
+import br.com.engine.input.KeyCode;
 import br.com.engine.resources.ResourceManager;
 
 public class MensageBox extends SimpleComponent 
@@ -175,7 +174,7 @@ public class MensageBox extends SimpleComponent
 	@Override
 	public void draw( )
 	{
-		GraphicsContext g = ControleBase.getInstance( ).getGraphics2d( );
+		EngineGraphicsContext g = ControleBase.getInstance( ).getGraphics2d( );
 		
 		g.drawImage( getImage( ), posUL.getX( ), posUL.getY( ), sizeSprt, sizeSprt, position.getX( ), position.getY( ), sizeSprtSC, sizeSprtSC );
 

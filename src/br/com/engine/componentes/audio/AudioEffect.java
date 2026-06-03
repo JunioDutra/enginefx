@@ -1,6 +1,6 @@
 package br.com.engine.componentes.audio;
 
-import javafx.scene.media.AudioClip;
+import br.com.engine.audio.AudioClip;
 import br.com.engine.componentes.SimpleComponent;
 import br.com.engine.resources.ResourceManager;
 
