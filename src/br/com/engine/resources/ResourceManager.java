@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Scanner;
@@ -41,28 +42,12 @@ public class ResourceManager
 	public static final int MAP           = 9;
 	public static final int PROPS         = 10;
 	
-	private static String imgPrefix = "res/imagens/";
-	private static String imgSufix  = ".png";
-	
-	private static String configPrefix = "res/config/";
 	private static String configSufix  = "config.json";
+	private static String applicationConfig = "application.json";
 	
 	private static String xmlPrefix = "res/mapas/";
 	private static String xmlSufix  = ".xml";
-	
-	private static String audioPrefix = "res/audio/";
-	
-	private static String scenePrefix = "res/mapas/";
 	private static String sceneSufix  = "list_scenes.json";
-	
-	private static String scriptPrefix = "res/scripts/";
-    private static String scriptSufix  = ".js";
-    
-    private static String fontPrefix = "res/fonts/";
-    private static String fontSufix  = ".ttf";
-    
-    private static String mapPrefix = "res/mapas/";
-    private static String mapSufix  = ".tmx";
 	
     @SuppressWarnings("unchecked")
     public static <T> T loadResource( String name, int nTipo, Class<T> tipo, Map<String, Object> data )
@@ -94,11 +79,9 @@ public class ResourceManager
 	
 	private static org.mapeditor.core.Map loadMap( String name )
 	{
-		TMXMapReader reader = new TMXMapReader( );
-		
 		try 
 		{
-			return reader.readMap( mapPrefix + name + mapSufix );
+			return (org.mapeditor.core.Map)ContentLoader.loadContent( name + ".tmx" );
 		} 
 		catch( Exception e )
 		{
@@ -115,16 +98,13 @@ public class ResourceManager
 
 	private static ScenesDefinition[] carregarScenes( )
 	{
-		ScenesDefinition[] ret = null;
-		
 		try 
 		{
-			Gson gson = new GsonBuilder( ).create( );
-			JsonObject jsonObject = gson.fromJson( new FileReader( new File( scenePrefix.concat( sceneSufix ) ) ), JsonObject.class );
+			JsonObject jsonObject = (JsonObject)ContentLoader.loadContent( sceneSufix );
 			
 			JsonArray jsonArray = jsonObject.get( "mapas" ).getAsJsonArray( );
 			
-			ret = new ScenesDefinition[jsonArray.size( )];
+			ScenesDefinition[] ret = new ScenesDefinition[jsonArray.size( )];
 			
 			for( int i = 0; i < ret.length; i++ )
 			{
@@ -132,20 +112,22 @@ public class ResourceManager
 				
 				ret[i] = new ScenesDefinition( object.get( "class" ).getAsString( ), object.get( "type" ).getAsString( ) );
 			}
+
+			return ret;
 		}
 		catch( Exception e )
 		{
 			e.printStackTrace( );
 		}
 		
-		return ret;
+		return null;
 	}
 
 	private static Object loadAudio( String name )
 	{
 		try 
 		{
-			return new AudioClip( Paths.get( audioPrefix + name ).toUri( ).toString( ) );
+			return ContentLoader.loadContent( name );
 		}
 		catch( Exception e )
 		{
@@ -185,9 +167,18 @@ public class ResourceManager
 		try 
 		{
 			Gson gson = new GsonBuilder( ).create( );
-			Configurations configs = gson.fromJson( new FileReader( new File( configPrefix.concat( configSufix ) ) ), Configurations.class );
-			
-			return configs;
+			JsonObject jsonObject;
+
+			try
+			{
+				jsonObject = (JsonObject)ContentLoader.loadContent( configSufix );
+			}
+			catch( RuntimeException exception )
+			{
+				jsonObject = (JsonObject)ContentLoader.loadContent( applicationConfig );
+			}
+
+			return gson.fromJson( jsonObject, Configurations.class );
 		}
 		catch( Exception e )
 		{
@@ -203,23 +194,29 @@ public class ResourceManager
 		
 		try 
 		{
-			Stream<Path> list = Files.list( Paths.get( "./res/mensages" ) );
+			List<Path> messageRoots = Stream.of( Paths.get( "./res/mensages" ), Paths.get( "./src/main/resources/mensages" ), Paths.get( "./target/classes/mensages" ) )
+				.filter( Files::exists )
+				.collect( java.util.stream.Collectors.toList( ) );
 			
-			list.forEach( path -> 
+			for( Path messageRoot : messageRoots )
 			{
-				try 
+				try( Stream<Path> list = Files.list( messageRoot ) )
 				{
-					Properties p = new Properties( );
-					p.load( new FileInputStream( path.toString( ) ) );
-					p.entrySet().forEach( entry -> props.put( (String)entry.getKey( ), (String)entry.getValue( ) ) );
-				} 
-				catch( Exception e )
-				{
-					e.printStackTrace( );
+					list.forEach( path -> 
+					{
+						try 
+						{
+							Properties p = new Properties( );
+							p.load( new FileInputStream( path.toString( ) ) );
+							p.entrySet().forEach( entry -> props.put( (String)entry.getKey( ), (String)entry.getValue( ) ) );
+						} 
+						catch( Exception e )
+						{
+							e.printStackTrace( );
+						}
+					});
 				}
-			});
-			
-			list.close( );
+			}
 		} 
 		catch( IOException e )
 		{
@@ -231,40 +228,23 @@ public class ResourceManager
 
 	private static Object carregaImagem( String imageNome )
 	{
-		Image image = null;
-		
 		try
 		{
-			image = new Image( new FileInputStream( imgPrefix + imageNome + imgSufix ) );
+			return ContentLoader.loadContent( imageNome );
 		} 
-		catch( IOException e ) 
+		catch( RuntimeException e ) 
 		{
 			e.printStackTrace( );
 		}
 		
-		return image;
+		return null;
 	}
 	
 	private static ScriptEngine carregaScript( String scriptNome, Map<String, Object> data )
     {
-	    final ScriptEngine nashorn;
-        
         try 
         {
-            ScriptEngineManager scriptEngineManager = new ScriptEngineManager( );
-            nashorn = scriptEngineManager.getEngineByName( "nashorn" );
-            
-            if( data != null )
-            {
-                data.forEach( (key, value) ->
-                {
-                    nashorn.put( key, value );
-                } );
-            }
-            
-            nashorn.eval( new FileReader( new File( scriptPrefix + scriptNome + scriptSufix ) ) );
-            
-            return nashorn; 
+	        return (ScriptEngine)ContentLoader.loadContent( scriptNome, data );
         } 
         catch( Exception e )
         {
@@ -278,9 +258,9 @@ public class ResourceManager
 	{
 		try 
 		{
-			return Font.loadFont( new FileInputStream(  fontPrefix + nome + fontSufix ), (int)data.get( "size" ) );
-		} 
-		catch( FileNotFoundException e )
+			return (Font)ContentLoader.loadContent( nome, data );
+		}
+		catch( RuntimeException e )
 		{
 			e.printStackTrace();
 		}

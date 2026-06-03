@@ -7,7 +7,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -29,26 +31,18 @@ import javafx.scene.image.Image;
 import javafx.scene.media.AudioClip;
 import javafx.scene.text.Font;
 
-public class ContentLoader {
+public class ContentLoader 
+{
+	private static final String[] RESOURCE_ROOTS = { "./res", "./src/main/resources", "./target/classes" };
 	
 	public static Object loadContent( String name, Map<String, Object> data )
 	{
 		try
 		{
-			Path srcPath = Paths.get("./res");
-			
-			List<Path> filesPaths = Files.find(srcPath, Integer.MAX_VALUE, (p,b)->{
-				return !Files.isDirectory(p);
-			} ).collect( Collectors.toList() );
-			
-			List<Path> listDiscovered = filesPaths.stream().filter( p ->{ 
-				if( name.contains(".") ) {
-					return p.getFileName( ).toString( ).equals( name );
-				}
-				else {
-					return p.getFileName( ).toString( ).replaceAll("\\..*$", "").equals( name );
-				}
-			}).collect( Collectors.toList( ) );
+			List<Path> filesPaths = discoverFiles( );
+			List<Path> listDiscovered = filesPaths.stream( )
+				.filter( path -> matches( path, name ) )
+				.collect( Collectors.toList( ) );
 			
 			if(listDiscovered.size( ) == 0)
 			{
@@ -72,6 +66,67 @@ public class ContentLoader {
 		{
 			throw new RuntimeException(e);
 		}
+	}
+
+	private static List<Path> discoverFiles( ) throws IOException
+	{
+		Map<String, Path> filesPaths = new LinkedHashMap<String, Path>( );
+
+		for( String resourceRoot : RESOURCE_ROOTS )
+		{
+			Path srcPath = Paths.get( resourceRoot );
+
+			if( !Files.exists( srcPath ) )
+			{
+				continue;
+			}
+
+			Files.find( srcPath, Integer.MAX_VALUE, (path, basicFileAttributes) -> !Files.isDirectory( path ) )
+				.forEach( path -> filesPaths.putIfAbsent( normalize( srcPath.relativize( path ).toString( ) ), path ) );
+		}
+
+		return new ArrayList<Path>( filesPaths.values( ) );
+	}
+
+	private static boolean matches( Path path, String name )
+	{
+		String normalizedName = normalize( name );
+		String fileName = normalize( path.getFileName( ).toString( ) );
+
+		for( String resourceRoot : RESOURCE_ROOTS )
+		{
+			Path root = Paths.get( resourceRoot );
+
+			if( !path.startsWith( root ) )
+			{
+				continue;
+			}
+
+			String relativePath = normalize( root.relativize( path ).toString( ) );
+			String relativeWithoutExtension = removeExtension( relativePath );
+			String fileNameWithoutExtension = removeExtension( fileName );
+
+			if( normalizedName.contains( "." ) )
+			{
+				return relativePath.equals( normalizedName ) || relativePath.endsWith( "/" + normalizedName ) || fileName.equals( normalizedName );
+			}
+
+			return relativeWithoutExtension.equals( normalizedName ) ||
+				relativeWithoutExtension.endsWith( "/" + normalizedName ) ||
+				fileNameWithoutExtension.equals( normalizedName );
+		}
+
+		return false;
+	}
+
+	private static String normalize( String value )
+	{
+		return value.replace( '\\', '/' );
+	}
+
+	private static String removeExtension( String value )
+	{
+		return value.replaceAll( "\\.[^.]+$", "" );
 	}
 	
 	public static Object loadContent( String name )
@@ -104,6 +159,10 @@ public class ContentLoader {
 		else if( file.getFileName().toString().matches( ".*(\\.(json))$" ) )
 		{
 			return loadJson( file );
+		}
+		else if( file.getFileName().toString().matches( ".*(\\.(xml))$" ) )
+		{
+			return Files.readString( file );
 		}
 		else if( file.getFileName().toString().matches( ".*(\\.(tmx))$" ) )
 		{
