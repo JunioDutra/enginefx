@@ -1,279 +1,170 @@
 package br.com.engine.resources;
 
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
-import java.util.stream.Collectors;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
 
-import org.mapeditor.io.TMXMapReader;
+import org.lwjgl.stb.STBImage;
+import org.lwjgl.system.MemoryUtil;
 
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonIOException;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonSyntaxException;
-
-import javax.imageio.ImageIO;
 
 import br.com.engine.audio.AudioClip;
 import br.com.engine.graphics.Font;
 import br.com.engine.graphics.Image;
 
-public class ContentLoader 
+/** One resolver for exact paths relative to res/, in development and packaged games. */
+public final class ContentLoader
 {
-	private static final List<String> RESOURCE_ROOTS = resourceRoots( );
-	private static final Map<Path, Image> IMAGES = new java.util.concurrent.ConcurrentHashMap<>( );
+    private static final List<Path> RESOURCE_ROOTS = List.of(
+        Path.of("res"), Path.of("src/main/resources"), Path.of("target/classes/res"));
+    private static final Map<String, Image> IMAGES = new ConcurrentHashMap<>();
+    private record FontKey(String source, float size) { }
+    private static final Map<FontKey, Font> FONTS = new ConcurrentHashMap<>();
 
-	private static List<String> resourceRoots( )
-	{
-		List<String> roots = new ArrayList<>( List.of( "./res", "./src/main/resources", "./target/classes/res" ) );
-		String packaged = PackagedResources.root( );
-		if( packaged != null ) roots.add( packaged );
-		return roots;
-	}
-	
-	public static Object loadContent( String name, Map<String, Object> data )
-	{
-		try
-		{
-			List<Path> filesPaths = discoverFiles( );
-			List<Path> listDiscovered = filesPaths.stream( )
-				.filter( path -> matches( path, name ) )
-				.collect( Collectors.toList( ) );
-			
-			if(listDiscovered.size( ) == 0)
-			{
-				throw new Exception( "file "+name+" Not found!" );
-			}
-			else if( listDiscovered.size( ) == 1 )
-			{
-				Path file = listDiscovered.get( 0 );
-				
-				if( data != null )
-					return discoveryAndLoad( file, data );
-				else
-					return discoveryAndLoad( file );
-			}
-			else
-			{
-				throw new Exception( "many files named "+ name +", format specification is required ex:(\"FileName.png\")");
-			}
-		}
-		catch(Exception e)
-		{
-			throw new RuntimeException(e);
-		}
-	}
+    private ContentLoader() { }
 
-	private static List<Path> discoverFiles( ) throws IOException
-	{
-		Map<String, Path> filesPaths = new LinkedHashMap<String, Path>( );
-
-		for( String resourceRoot : RESOURCE_ROOTS )
-		{
-			Path srcPath = Paths.get( resourceRoot );
-
-			if( !Files.exists( srcPath ) )
-			{
-				continue;
-			}
-
-			try( var paths = Files.find( srcPath, Integer.MAX_VALUE, (path, attributes) -> attributes.isRegularFile( ) ) )
-			{
-				paths.forEach( path -> filesPaths.putIfAbsent( normalize( srcPath.relativize( path ).toString( ) ), path ) );
-			}
-		}
-
-		return new ArrayList<Path>( filesPaths.values( ) );
-	}
-
-	private static boolean matches( Path path, String name )
-	{
-		String normalizedName = normalize( name );
-		String fileName = normalize( path.getFileName( ).toString( ) );
-
-		for( String resourceRoot : RESOURCE_ROOTS )
-		{
-			Path root = Paths.get( resourceRoot );
-
-			if( !path.startsWith( root ) )
-			{
-				continue;
-			}
-
-			String relativePath = normalize( root.relativize( path ).toString( ) );
-			String relativeWithoutExtension = removeExtension( relativePath );
-			String fileNameWithoutExtension = removeExtension( fileName );
-
-			if( normalizedName.contains( "." ) )
-			{
-				return relativePath.equals( normalizedName ) || relativePath.endsWith( "/" + normalizedName ) || fileName.equals( normalizedName );
-			}
-
-			return relativeWithoutExtension.equals( normalizedName ) ||
-				relativeWithoutExtension.endsWith( "/" + normalizedName ) ||
-				fileNameWithoutExtension.equals( normalizedName );
-		}
-
-		return false;
-	}
-
-	private static String normalize( String value )
-	{
-		return value.replace( '\\', '/' );
-	}
-
-	private static String removeExtension( String value )
-	{
-		return value.replaceAll( "\\.[^.]+$", "" );
-	}
-	
-	public static Object loadContent( String name )
-	{
-		return loadContent( name, Collections.emptyMap( ) );
-	}
-
-	private static Object discoveryAndLoad(Path file, Map<String, Object> data) throws Exception
-	{
-		if( file.getFileName().toString().matches( ".*(\\.(gif|jpg|png))$" ) )
-		{
-			return loadImage(file);
-		}
-		else if( file.getFileName().toString().matches( ".*(\\.(properties))$" ) )
-		{
-			return loadConfigs(file);
-		}
-		else if( file.getFileName().toString().matches( ".*(\\.(mp3|wav))$" ) )
-		{
-			return loadAudio(file);
-		}
-		else if( file.getFileName().toString().matches( ".*(\\.(js))$" ) )
-		{
-			return loadScript( file, data );
-		}
-		else if( file.getFileName().toString().matches( ".*(\\.(ttf))$" ) )
-		{
-			return loadFont( file, data );
-		}
-		else if( file.getFileName().toString().matches( ".*(\\.(json))$" ) )
-		{
-			return loadJson( file );
-		}
-		else if( file.getFileName().toString().matches( ".*(\\.(xml))$" ) )
-		{
-			return Files.readString( file );
-		}
-		else if( file.getFileName().toString().matches( ".*(\\.(tmx))$" ) )
-		{
-			return loadMap( file );
-		}
-		else
-		{
-			throw new Exception("File format is not supported, "+file.getFileName().toString().replaceAll( "^.*\\.", "" ) );
-		}
-	}
-	
-	private static Object discoveryAndLoad(Path file) throws Exception 
-	{
-		return discoveryAndLoad(file, Collections.emptyMap());
-	}
-	
-	private static Object loadImage( Path path ) throws FileNotFoundException
-	{
-		try
-		{
-			Path key = path.toAbsolutePath( ).normalize( );
-			Image cached = IMAGES.get( key );
-			if( cached != null ) return cached;
-			var pixels = ImageIO.read( path.toFile( ) );
-			if( pixels == null ) throw new IOException( "Unsupported or invalid image: " + path );
-			Image image = new Image( pixels );
-			Image previous = IMAGES.putIfAbsent( key, image );
-			return previous == null ? image : previous;
-		}
-		catch( IOException exception )
-		{
-			throw new RuntimeException( exception );
-		}
-	}
-	
-	private static Object loadConfigs( Path path ) throws FileNotFoundException, IOException
-	{
-		Properties p = new Properties( );
-		
-		try( var input = Files.newInputStream( path ) ) { p.load( input ); }
-		
-		return p;
-	}
-	
-	private static Object loadAudio( Path path )
-	{
-		return new AudioClip( path );
-	}
-	
-    private static Object loadScript( Path path, Map<String, Object> data ) throws IOException, ScriptException
+    static String resourcePath(String name)
     {
-        ScriptEngineManager scriptEngineManager = new ScriptEngineManager( );
-        ScriptEngine nashorn = scriptEngineManager.getEngineByName( "nashorn" );
-        if( nashorn == null ) throw new IllegalStateException( "Nashorn provider missing: include nashorn-core and preserve META-INF/services" );
-        
-        if( data != null )
-        {
-            data.forEach( (key, value) ->
-            {
-                nashorn.put( key, value );
-            } );
-        }
-        
-        try( var reader = Files.newBufferedReader( path ) ) { nashorn.eval( reader ); }
-        
-        return nashorn; 
+        if (name == null || name.isBlank()) throw new IllegalArgumentException("Resource path is required");
+        String normalized = name.replace('\\', '/');
+        if (normalized.startsWith("/") || normalized.contains(":"))
+            throw new IllegalArgumentException("Resource path must be relative: " + name);
+        for (String part : normalized.split("/", -1))
+            if (part.isEmpty() || part.equals(".") || part.equals(".."))
+                throw new IllegalArgumentException("Invalid resource path: " + name);
+        if (!Path.of(normalized).getFileName().toString().contains("."))
+            throw new IllegalArgumentException("Resource extension is required: " + name);
+        return normalized;
     }
-	
-	private static Object loadFont( Path path, Map<String, Object> data ) throws FileNotFoundException
-	{
-		try
-		{
-			java.awt.Font awtFont = java.awt.Font.createFont( java.awt.Font.TRUETYPE_FONT, path.toFile( ) ).deriveFont( ((Number)data.get( "size" )).floatValue( ) );
-			return new Font( awtFont, path.toFile( ) );
-		}
-		catch( java.awt.FontFormatException | IOException exception )
-		{
-			throw new RuntimeException( exception );
-		}
-	}
 
-	private static Object loadJson( Path path ) throws JsonSyntaxException, JsonIOException, IOException
-	{
-		Gson gson = new GsonBuilder( ).create( );
-		try( var reader = Files.newBufferedReader( path ) ) { return gson.fromJson( reader, JsonObject.class ); }
-	}
+    private static URL resolve(String name) throws IOException
+    {
+        String relative = resourcePath(name);
+        for (Path root : RESOURCE_ROOTS)
+        {
+            Path file = root.resolve(relative);
+            if (Files.isRegularFile(file)) return file.toAbsolutePath().normalize().toUri().toURL();
+        }
+        URL packaged = ContentLoader.class.getResource("/res/" + relative);
+        if (packaged != null) return packaged;
+        throw new FileNotFoundException("Resource not found: " + relative);
+    }
 
-	private static org.mapeditor.core.Map loadMap( Path path ) throws FileNotFoundException, Exception
-	{
-		return new TMXMapReader( ).readMap( path.toAbsolutePath( ).toString( ) );
-	}
-	
-	public static void main(String[] args) throws Exception {
-		Image img = (Image)loadContent("Player.png");
-		Properties conf = (Properties)loadContent("config");
-		
-		System.out.println(img.getWidth());
-		
-		conf.keySet().forEach( o -> System.out.println(o) );
-	}
+    public static InputStream openResource(String name) throws IOException
+    {
+        return resolve(name).openStream();
+    }
+
+    public static Object loadContent(String name)
+    {
+        return loadContent(name, Map.of());
+    }
+
+    public static Object loadContent(String name, Map<String, Object> data)
+    {
+        String resource = resourcePath(name);
+        Map<String, Object> bindings = data == null ? Map.of() : data;
+        try
+        {
+            URL source = resolve(resource);
+            String extension = resource.substring(resource.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT);
+            if (List.of("png", "jpg", "jpeg", "gif").contains(extension))
+                return IMAGES.computeIfAbsent(source.toExternalForm(), ignored -> readImage(source, resource));
+            if (extension.equals("ttf"))
+            {
+                if (!(bindings.get("size") instanceof Number size))
+                    throw new IllegalArgumentException("Font size is required");
+                return FONTS.computeIfAbsent(new FontKey(source.toExternalForm(), size.floatValue()),
+                    key -> readFont(source, key, resource));
+            }
+            try (InputStream input = source.openStream())
+            {
+                return switch (extension)
+                {
+                    case "wav", "mp3" -> new AudioClip(resource, input);
+                    case "properties" -> {
+                        Properties properties = new Properties();
+                        properties.load(new InputStreamReader(input, StandardCharsets.UTF_8));
+                        yield properties;
+                    }
+                    case "json" -> new Gson().fromJson(new InputStreamReader(input, StandardCharsets.UTF_8), JsonObject.class);
+                    case "xml" -> new String(input.readAllBytes(), StandardCharsets.UTF_8);
+                    case "tmx" -> TmxParser.parse(input);
+                    case "js" -> {
+                        ScriptEngine engine = new ScriptEngineManager().getEngineByName("nashorn");
+                        if (engine == null) throw new IllegalStateException("Nashorn provider missing: preserve META-INF/services");
+                        bindings.forEach(engine::put);
+                        engine.eval(new InputStreamReader(input, StandardCharsets.UTF_8));
+                        yield engine;
+                    }
+                    default -> throw new IllegalArgumentException("Unsupported resource format: " + extension);
+                };
+            }
+        }
+        catch (ResourceLoadException exception) { throw exception; }
+        catch (Exception exception) { throw new ResourceLoadException(resource, exception); }
+    }
+
+    private static Image readImage(URL source, String resource)
+    {
+        try (InputStream input = source.openStream())
+        {
+            return decodeImage(input.readAllBytes(), resource);
+        }
+        catch (IOException exception) { throw new ResourceLoadException(resource, exception); }
+    }
+
+    static Image decodeImage(byte[] encoded, String resource)
+    {
+        ByteBuffer input = MemoryUtil.memAlloc(encoded.length);
+        try
+        {
+            input.put(encoded).flip();
+            int[] width = new int[1], height = new int[1], channels = new int[1];
+            ByteBuffer pixels = STBImage.stbi_load_from_memory(input, width, height, channels, 4);
+            if (pixels == null) throw new ResourceLoadException(resource,
+                new IOException("Invalid image: " + STBImage.stbi_failure_reason()));
+            try
+            {
+                byte[] rgba = new byte[Math.multiplyExact(Math.multiplyExact(width[0], height[0]), 4)];
+                // Absolute read keeps the native pointer at the allocation's start for stbi_image_free.
+                pixels.get(0, rgba);
+                return new Image(width[0], height[0], rgba);
+            }
+            finally { STBImage.stbi_image_free(pixels); }
+        }
+        finally { MemoryUtil.memFree(input); }
+    }
+
+    private static Font readFont(URL source, FontKey key, String resource)
+    {
+        try (InputStream input = source.openStream())
+        {
+            return new Font(key.source(), key.size(), input.readAllBytes());
+        }
+        catch (IOException exception) { throw new ResourceLoadException(resource, exception); }
+    }
+
+    /** Releases Java-side asset references when the runtime shuts down. */
+    public static void clearCaches()
+    {
+        IMAGES.clear();
+        FONTS.clear();
+    }
 }

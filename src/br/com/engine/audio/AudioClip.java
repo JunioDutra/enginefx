@@ -1,62 +1,68 @@
 package br.com.engine.audio;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
-
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
-import javax.sound.sampled.LineUnavailableException;
-import javax.sound.sampled.UnsupportedAudioFileException;
 
-public class AudioClip
+/** Scene-owned audio line. Loading errors are explicit and all streams/lines are closed. */
+public class AudioClip implements AutoCloseable
 {
-	private Clip clip;
+    private Clip clip;
 
-	public AudioClip( Path path )
-	{
-		try( AudioInputStream audioInputStream = AudioSystem.getAudioInputStream( path.toFile( ) ) )
-		{
-			clip = AudioSystem.getClip( );
-			clip.open( audioInputStream );
-		}
-		catch( UnsupportedAudioFileException | IOException | LineUnavailableException exception )
-		{
-			clip = null;
-		}
-	}
+    public AudioClip(Path path) { this(path.toString(), open(path)); }
 
-	public void play( )
-	{
-		if( clip == null )
-		{
-			return;
-		}
+    private static InputStream open(Path path)
+    {
+        try { return Files.newInputStream(path); }
+        catch (IOException exception) { throw new IllegalStateException("Cannot load audio: " + path, exception); }
+    }
 
-		clip.stop( );
-		clip.setFramePosition( 0 );
-		clip.start( );
-	}
+    public AudioClip(String resourcePath, InputStream input)
+    {
+        Clip loaded = null;
+        try (InputStream buffered = new BufferedInputStream(input);
+             AudioInputStream audio = AudioSystem.getAudioInputStream(buffered))
+        {
+            loaded = AudioSystem.getClip();
+            loaded.open(audio);
+            clip = loaded;
+        }
+        catch (Exception exception)
+        {
+            if (loaded != null) loaded.close();
+            throw new IllegalStateException("Cannot load audio: " + resourcePath, exception);
+        }
+    }
 
-	public void stop( )
-	{
-		if( clip != null )
-		{
-			clip.stop( );
-		}
-	}
+    public void play()
+    {
+        if (clip == null) return;
+        clip.stop();
+        clip.setFramePosition(0);
+        clip.start();
+    }
 
-	public void setVolume( double volume )
-	{
-		if( clip == null || !clip.isControlSupported( FloatControl.Type.MASTER_GAIN ) )
-		{
-			return;
-		}
+    public void stop() { if (clip != null) clip.stop(); }
 
-		FloatControl gainControl = (FloatControl)clip.getControl( FloatControl.Type.MASTER_GAIN );
-		double clamped = Math.max( 0.0001d, Math.min( 1.0d, volume ) );
-		float gain = (float)(20.0d * Math.log10( clamped ));
-		gainControl.setValue( Math.max( gainControl.getMinimum( ), Math.min( gainControl.getMaximum( ), gain ) ) );
-	}
+    public void setVolume(double volume)
+    {
+        if (clip == null || !clip.isControlSupported(FloatControl.Type.MASTER_GAIN)) return;
+        FloatControl gain = (FloatControl)clip.getControl(FloatControl.Type.MASTER_GAIN);
+        double clamped = Math.max(0.0001, Math.min(1.0, volume));
+        float decibels = (float)(20.0 * Math.log10(clamped));
+        gain.setValue(Math.max(gain.getMinimum(), Math.min(gain.getMaximum(), decibels)));
+    }
+
+    @Override public void close()
+    {
+        Clip closing = clip;
+        clip = null;
+        if (closing != null) try { closing.stop(); } finally { closing.close(); }
+    }
 }

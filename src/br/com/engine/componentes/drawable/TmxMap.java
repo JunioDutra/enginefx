@@ -1,18 +1,9 @@
 package br.com.engine.componentes.drawable;
 
-import java.awt.geom.Ellipse2D;
-import java.awt.geom.Rectangle2D.Double;
-import java.awt.image.BufferedImage;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-
-import org.mapeditor.core.Map;
-import org.mapeditor.core.MapObject;
-import org.mapeditor.core.ObjectGroup;
-import org.mapeditor.core.Tile;
-import org.mapeditor.core.TileLayer;
-
 import br.com.engine.componentes.SimpleComponent;
 import br.com.engine.componentes.builders.Colisors;
 import br.com.engine.componentes.physics.CustomCubeColisor;
@@ -20,103 +11,88 @@ import br.com.engine.core.ControleBase;
 import br.com.engine.core.Vector2;
 import br.com.engine.graphics.EngineGraphicsContext;
 import br.com.engine.graphics.Image;
-import br.com.engine.interfaces.CubeColisor;
 import br.com.engine.resources.ResourceManager;
+import br.com.engine.resources.TmxMapData;
 
+/** Draws finite orthogonal TMX layers. Collision objects currently use their AABB. */
 public class TmxMap extends SimpleComponent
 {
-	private String tmxMapFile;
+    private final String tmxMapFile;
+    private TmxMapData map;
+    private record TileDraw(Image image, int sourceX, int sourceY, int width, int height, Vector2 position) { }
+    private final List<TileDraw> tiles = new ArrayList<>();
 
-	private Map map;
+    public TmxMap(String tmxMapFile) { this.tmxMapFile = tmxMapFile; }
 
-	private record TileDraw( Image image, Vector2 position ) { }
-	private final List<TileDraw> itens = new ArrayList<>( );
-	
-	public TmxMap( String tmxMapFile )
-	{
-		this.tmxMapFile = tmxMapFile;
-	}
-	
-	@Override
-	public void setup( )
-	{
-		try 
-		{
-			map = ResourceManager.loadResource( this.tmxMapFile, ResourceManager.MAP, Map.class );
-			itens.clear( );
-			java.util.Map<BufferedImage, Image> tileImages = new java.util.IdentityHashMap<>( );
-			
-			for( int l = 0; l < map.getLayerCount( ); l++ )
-			{
-				if( map.getLayer( l ) instanceof ObjectGroup )
-				{
-					ObjectGroup object = (ObjectGroup)map.getLayer( l );
-					
-					List<MapObject> objects = object.getObjects( );
-					
-					objects.forEach(mapObject->{
-						Double bounds = mapObject.getBounds( );
+    @Override public void setup()
+    {
+        try
+        {
+            map = ResourceManager.map(tmxMapFile);
+            tiles.clear();
+            java.util.Map<String, Image> images = new HashMap<>();
+            for (TmxMapData.MapObject object : map.objects())
+            {
+                // Preserve the full bounds even for ellipses. Exact ellipse response is not implemented.
+                CustomCubeColisor collider = (CustomCubeColisor)Colisors.custom(new Vector2(object.x(), object.y()),
+                    Math.round(object.width()), Math.round(object.height()));
+                collider.setTag(object.name());
+                getParent().addComponente(collider);
+            }
+            boolean left = map.renderOrder().startsWith("left");
+            boolean up = map.renderOrder().endsWith("up");
+            for (TmxMapData.Layer layer : map.layers())
+            {
+                if (!layer.visible()) continue;
+                for (int row = 0; row < layer.height(); row++) for (int column = 0; column < layer.width(); column++)
+                {
+                    int x = left ? layer.width() - 1 - column : column;
+                    int y = up ? layer.height() - 1 - row : row;
+                    int gid = layer.gids()[y * layer.width() + x];
+                    if (gid == 0) continue;
+                    TmxMapData.Tileset tileset = tilesetFor(gid);
+                    if (tileset == null) throw new IllegalArgumentException("No tileset for GID " + gid);
+                    int local = gid - tileset.firstGid();
+                    Image image = images.computeIfAbsent(tileset.image(), this::loadTilesetImage);
+                    int sx = (local % tileset.columns()) * tileset.tileWidth();
+                    int sy = (local / tileset.columns()) * tileset.tileHeight();
+                    if (sx + tileset.tileWidth() > image.getWidth() || sy + tileset.tileHeight() > image.getHeight())
+                        throw new IllegalArgumentException("GID outside tileset image: " + gid);
+                    tiles.add(new TileDraw(image, sx, sy, tileset.tileWidth(), tileset.tileHeight(),
+                        new Vector2(x * map.tileWidth(), (y + 1) * map.tileHeight() - tileset.tileHeight())));
+                }
+            }
+        }
+        catch (Exception exception) { throw new IllegalStateException("Cannot load TMX map: " + tmxMapFile, exception); }
+    }
 
-						CubeColisor colisor = null;
-						
-						if( mapObject.getShape( ) instanceof Ellipse2D )
-						{//TODO: VAlidar novo m�todo de colis�o
-//							colisor = Colisors.ovalCustom( new Vector2(bounds.x, bounds.y), bounds.width, bounds.height);
-//							((OvalCustomCubeColisor)colisor).setTag( mapObject.getName( ) );
-						}
-						else
-						{
-							colisor = Colisors.custom( new Vector2((float)bounds.getX(), (float)bounds.getY()), (int)bounds.getWidth(), (int)bounds.getHeight());
-							((CustomCubeColisor)colisor).setTag( mapObject.getName( ) );
-						}
-						
-						if( colisor != null ) getParent( ).addComponente( colisor );
-					});
-				}
-				else if( map.getLayer( l ) instanceof TileLayer )
-				{
-					TileLayer layer = ((TileLayer)map.getLayer( l ));
-					
-					
-					for (int y = 0; y < layer.getHeight(); y++) 
-					{
-						for (int x = 0; x < layer.getWidth(); x++) 
-						{
-							Tile tile = layer.getTileAt( x , y );
-							
-							if( tile == null )
-							{
-								continue;
-							}
-							
-							BufferedImage image = (BufferedImage)tile.getImage( );
-							if( image != null ) itens.add( new TileDraw( tileImages.computeIfAbsent( image, Image::new ),
-								new Vector2( x * map.getTileWidth( ), y * map.getTileHeight( ) ) ) );
-						}	
-					}
-					
-				}
-			}
-		} 
-		catch( Exception e )
-		{
-			throw new IllegalStateException( "Cannot load TMX map: " + tmxMapFile, e );
-		}
-	}
-	
-	@Override
-	public void draw( )
-	{
-		EngineGraphicsContext g = ControleBase.getInstance( ).getGraphics2d( );
+    @Override public void draw()
+    {
+        EngineGraphicsContext graphics = ControleBase.getInstance().getGraphics2d();
+        Vector2 position = getParent().getPosition();
+        for (TileDraw tile : tiles)
+            graphics.drawImage(tile.image(), tile.sourceX(), tile.sourceY(), tile.width(), tile.height(),
+                position.x + tile.position().x, position.y + tile.position().y, tile.width(), tile.height());
+    }
 
-		Vector2 position = getParent( ).getPosition();
-		
-		itens.forEach( tile -> g.drawImage( tile.image( ), position.getX( ) + tile.position( ).getX( ), position.getY( ) + tile.position( ).getY( ) ) );
-	}
+    @Override public void update(long time) { }
+    @Override public void dispose() { tiles.clear(); map = null; }
 
-	@Override
-	public void update( long time )
-	{
-		
-	}
+    private TmxMapData.Tileset tilesetFor(int gid)
+    {
+        TmxMapData.Tileset selected = null;
+        for (TmxMapData.Tileset candidate : map.tilesets())
+            if (candidate.firstGid() <= gid && (selected == null || candidate.firstGid() > selected.firstGid())) selected = candidate;
+        return selected;
+    }
+
+    private Image loadTilesetImage(String source)
+    {
+        String normalized = source.replace('\\', '/');
+        if (normalized.startsWith("/") || normalized.contains(":")) throw new IllegalArgumentException("Tileset image must be relative");
+        Path mapPath = Path.of(tmxMapFile.replace('\\', '/'));
+        Path parent = mapPath.getParent();
+        Path imagePath = (parent == null ? Path.of(normalized) : parent.resolve(normalized)).normalize();
+        return ResourceManager.image(imagePath.toString());
+    }
 }

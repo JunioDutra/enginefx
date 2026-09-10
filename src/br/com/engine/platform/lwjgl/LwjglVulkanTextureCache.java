@@ -165,6 +165,7 @@ public class LwjglVulkanTextureCache implements AutoCloseable
 		return new Texture( textureImage, textureMemory, textureImageView, textureSampler, descriptorSet, stagedImage.width( ), stagedImage.height( ) );
 	}
 
+
 	private long createImage( int width, int height )
 	{
 		try( MemoryStack stack = stackPush( ) )

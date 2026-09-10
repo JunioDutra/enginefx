@@ -12,24 +12,24 @@ public class Loading extends Scene
 {
 	int dots = 0;
 	int timeEl = 0;
-	
+
 	@Override
 	public void setup( )
 	{
 		super.setup( );
-		
+
 		GameObject loading = new SpriteFontBuilder( )
-			.setFont( "font" )
+			.setFont( "fonts/font.ttf" )
 			.setText("Loading")
 			.setSize(50)
 			.centerX()
 			.centerY()
 			.build();
-		
+
 		loading.addComponente( ScriptBuilder.create( time ->
 		{
 			String text = "Loading";
-			
+
 			for( int i = 0; i < dots; i++ )
 			{
 				text = text.concat( "-" );
@@ -43,7 +43,7 @@ public class Loading extends Scene
 			{
 				dots++;
 			}
-			
+
 			if( timeEl >= 500 )
 			{
 				timeEl = 0;
@@ -52,13 +52,13 @@ public class Loading extends Scene
 			{
 				timeEl += time;
 			}
-			
+
 			loading.getComponent( SpriteFont.class ).setText( text );
 		} ) );
-		
+
 		add( loading );
 	}
-	
+
 	@Override
 	public String getName() {
 		return "loadingScreen";

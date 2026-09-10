@@ -21,7 +21,7 @@ public class VulkanGraphicsContext implements EngineGraphicsContext
     private final Deque<GraphicsState> states = new LinkedList<GraphicsState>( );
     private Paint fill = Color.BLACK;
     private Paint stroke = Color.BLACK;
-    private Font font = new Font( "Arial", 12 );
+    private Font font;
     private VPos baseline = VPos.BASELINE;
     private double translateX;
     private double translateY;
@@ -106,22 +106,22 @@ public class VulkanGraphicsContext implements EngineGraphicsContext
         double ry = height / 2;
         int segments = 16;
         double t = 1.0;
-        
+
         double prevX = cx + rx;
         double prevY = cy;
-        
+
         for (int i = 1; i <= segments; i++) {
             double angle = i * 2 * Math.PI / segments;
             double nextX = cx + rx * Math.cos(angle);
             double nextY = cy + ry * Math.sin(angle);
-            
+
             // Draw a line segment
             double dx = nextX - prevX;
             double dy = nextY - prevY;
             double length = Math.hypot(dx, dy);
             double nx = -dy / length * (t/2);
             double ny = dx / length * (t/2);
-            
+
             commands.add(new FillQuadCommand(
                 prevX + nx, prevY + ny,
                 prevX - nx, prevY - ny,
@@ -129,7 +129,7 @@ public class VulkanGraphicsContext implements EngineGraphicsContext
                 nextX + nx, nextY + ny,
                 stroke
             ));
-            
+
             prevX = nextX;
             prevY = nextY;
         }
@@ -157,6 +157,7 @@ public class VulkanGraphicsContext implements EngineGraphicsContext
     @Override
     public void fillText( String text, double x, double y )
     {
+		if( font == null ) throw new IllegalStateException( "A Font must be selected before drawing text" );
         commands.add( new DrawTextCommand( text, font, fill, baseline, x + translateX, y + translateY ) );
     }
 

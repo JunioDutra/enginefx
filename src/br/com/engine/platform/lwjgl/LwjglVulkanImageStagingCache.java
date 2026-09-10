@@ -17,7 +17,6 @@ import static org.lwjgl.vulkan.VK10.vkGetPhysicalDeviceMemoryProperties;
 import static org.lwjgl.vulkan.VK10.vkMapMemory;
 import static org.lwjgl.vulkan.VK10.vkUnmapMemory;
 
-import java.awt.image.BufferedImage;
 import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 import java.util.IdentityHashMap;
@@ -78,7 +77,7 @@ public class LwjglVulkanImageStagingCache implements AutoCloseable
 		long size = (long)width * height * 4L;
 		long buffer = createBuffer( size );
 		long memory = allocateMemory( buffer );
-		upload( image.getBufferedImage( ), memory, size );
+		upload( image.copyRgba( ), memory, size );
 		return new StagedImage( buffer, memory, width, height );
 	}
 
@@ -151,7 +150,7 @@ public class LwjglVulkanImageStagingCache implements AutoCloseable
 		throw new IllegalStateException( "No compatible Vulkan memory type found" );
 	}
 
-	private void upload( BufferedImage image, long memory, long size )
+	private void upload( byte[] image, long memory, long size )
 	{
 		try( MemoryStack stack = stackPush( ) )
 		{
@@ -165,17 +164,7 @@ public class LwjglVulkanImageStagingCache implements AutoCloseable
 
 			ByteBuffer target = MemoryUtil.memByteBuffer( dataPointer.get( 0 ), (int)size );
 
-			for( int y = 0; y < image.getHeight( ); y++ )
-			{
-				for( int x = 0; x < image.getWidth( ); x++ )
-				{
-					int pixel = image.getRGB( x, y );
-					target.put( (byte)((pixel >> 16) & 0xFF) );
-					target.put( (byte)((pixel >> 8) & 0xFF) );
-					target.put( (byte)(pixel & 0xFF) );
-					target.put( (byte)((pixel >> 24) & 0xFF) );
-				}
-			}
+			target.put( image );
 
 			vkUnmapMemory( device.getLogicalDevice( ), memory );
 		}

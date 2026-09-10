@@ -43,6 +43,7 @@ public class LwjglVulkanSwapchain implements AutoCloseable
 	private final int imageFormat;
 	private final int width;
 	private final int height;
+	private final int presentMode;
 	private final long[] images;
 	private final long[] imageViews;
 
@@ -62,6 +63,7 @@ public class LwjglVulkanSwapchain implements AutoCloseable
 			imageFormat = surfaceFormat.format( );
 			width = extent.width( );
 			height = extent.height( );
+			this.presentMode = presentMode;
 			images = getSwapchainImages( stack );
 			imageViews = createImageViews( stack );
 		}
@@ -85,6 +87,11 @@ public class LwjglVulkanSwapchain implements AutoCloseable
 	public int getHeight( )
 	{
 		return height;
+	}
+
+	public int getPresentMode( )
+	{
+		return presentMode;
 	}
 
 	public int getImageCount( )
@@ -177,16 +184,27 @@ public class LwjglVulkanSwapchain implements AutoCloseable
 		return new SurfaceFormat( formats.get( 0 ).format( ), formats.get( 0 ).colorSpace( ) );
 	}
 
-	private int choosePresentMode( IntBuffer presentModes )
+	static int choosePresentMode( IntBuffer presentModes )
 	{
+		String requested = System.getProperty( "enginefx.vulkan.presentMode", "auto" ).trim( ).toLowerCase( java.util.Locale.ROOT );
+		if( !requested.equals( "auto" ) && !requested.equals( "fifo" ) && !requested.equals( "mailbox" ) )
+		{
+			throw new IllegalArgumentException( "enginefx.vulkan.presentMode must be auto, fifo, or mailbox; got " + requested );
+		}
+		int wanted = requested.equals( "fifo" ) ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_MAILBOX_KHR;
+		boolean mailboxSupported = false;
+		boolean wantedSupported = false;
 		for( int index = 0; index < presentModes.capacity( ); index++ )
 		{
-			if( presentModes.get( index ) == VK_PRESENT_MODE_MAILBOX_KHR )
-			{
-				return VK_PRESENT_MODE_MAILBOX_KHR;
-			}
+			int mode = presentModes.get( index );
+			mailboxSupported |= mode == VK_PRESENT_MODE_MAILBOX_KHR;
+			wantedSupported |= mode == wanted;
 		}
-
+		if( !requested.equals( "auto" ) && !wantedSupported )
+		{
+			throw new IllegalStateException( "Requested Vulkan present mode '" + requested + "' is not supported by this surface" );
+		}
+		if( requested.equals( "mailbox" ) || (requested.equals( "auto" ) && mailboxSupported) ) return VK_PRESENT_MODE_MAILBOX_KHR;
 		return VK_PRESENT_MODE_FIFO_KHR;
 	}
 

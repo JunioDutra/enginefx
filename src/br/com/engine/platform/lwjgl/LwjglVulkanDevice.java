@@ -15,6 +15,8 @@ import static org.lwjgl.vulkan.VK10.vkGetPhysicalDeviceQueueFamilyProperties;
 
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.util.Set;
+import java.util.TreeSet;
 
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
@@ -24,6 +26,7 @@ import org.lwjgl.vulkan.VkDeviceQueueCreateInfo;
 import org.lwjgl.vulkan.VkPhysicalDevice;
 import org.lwjgl.vulkan.VkQueue;
 import org.lwjgl.vulkan.VkQueueFamilyProperties;
+import org.lwjgl.vulkan.VkPhysicalDeviceProperties;
 
 public class LwjglVulkanDevice implements AutoCloseable
 {
@@ -123,6 +126,26 @@ public class LwjglVulkanDevice implements AutoCloseable
 		}
 	}
 
+	/** Stable, human-readable data recorded by smoke and support reports. */
+	public DeviceReport getReport( )
+	{
+		try( MemoryStack stack = stackPush( ) )
+		{
+			VkPhysicalDeviceProperties properties = VkPhysicalDeviceProperties.malloc( stack );
+			org.lwjgl.vulkan.VK10.vkGetPhysicalDeviceProperties( physicalDevice, properties );
+			IntBuffer count = stack.ints( 0 );
+			org.lwjgl.vulkan.VK10.vkEnumerateDeviceExtensionProperties( physicalDevice, (String)null, count, null );
+			var extensions = org.lwjgl.vulkan.VkExtensionProperties.malloc( count.get( 0 ), stack );
+			org.lwjgl.vulkan.VK10.vkEnumerateDeviceExtensionProperties( physicalDevice, (String)null, count, extensions );
+			Set<String> names = new TreeSet<String>( );
+			for( int index = 0; index < extensions.capacity( ); index++ ) names.add( extensions.get( index ).extensionNameString( ) );
+			int api = properties.apiVersion( );
+			return new DeviceReport( properties.deviceNameString( ), properties.driverVersion( ),
+				org.lwjgl.vulkan.VK10.VK_VERSION_MAJOR( api ) + "." + org.lwjgl.vulkan.VK10.VK_VERSION_MINOR( api ) + "." + org.lwjgl.vulkan.VK10.VK_VERSION_PATCH( api ),
+				queueFamilyIndices, Set.copyOf( names ) );
+		}
+	}
+
 	private QueueFamilyIndices findQueueFamilies( VkPhysicalDevice physicalDevice, long surface )
 	{
 		try( MemoryStack stack = stackPush( ) )
@@ -218,6 +241,14 @@ public class LwjglVulkanDevice implements AutoCloseable
 		public boolean isComplete( )
 		{
 			return graphicsFamily >= 0 && presentFamily >= 0;
+		}
+	}
+
+	public record DeviceReport( String deviceName, int driverVersion, String apiVersion, QueueFamilyIndices queues, Set<String> extensions )
+	{
+		public boolean supportsSwapchainMaintenance1( )
+		{
+			return extensions.contains( "VK_KHR_swapchain_maintenance1" ) || extensions.contains( "VK_EXT_swapchain_maintenance1" );
 		}
 	}
 }

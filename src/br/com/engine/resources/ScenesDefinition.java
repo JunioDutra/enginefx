@@ -1,58 +1,36 @@
 package br.com.engine.resources;
 
-import java.lang.reflect.Array;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-
 import br.com.engine.core.Scene;
 import br.com.engine.core.SceneJs;
 
-public class ScenesDefinition 
+public class ScenesDefinition
 {
-	private String scene;
-	private String type;
-	
-	public ScenesDefinition(String scene, String type) {
-		super();
-		this.scene = scene;
-		this.type = type;
-	}
+    private String scene;
+    private String type;
+    private String title;
+    private Boolean menu;
 
-	public Scene getNewScene( )
-	{
-		try 
-		{
-		    if( type.equalsIgnoreCase( "JS" ) )
-		    {
-		        Constructor<SceneJs> declaredConstructors = SceneJs.class.getConstructor( String[].class );
-		        
-		        String[] array = (String[])Array.newInstance( String.class, 1 );
-		        array[0] = "characters/player";
-		        
-		        return (Scene)declaredConstructors.newInstance( (Object)array );
-		    }
-		    else
-		    {
-		        return Class.forName( getScene( ) ).asSubclass( Scene.class ).getDeclaredConstructor( ).newInstance( );
-		    }
-		} 
-		catch( InstantiationException | IllegalAccessException | 
-				ClassNotFoundException | IllegalArgumentException | 
-				NoSuchMethodException | InvocationTargetException | 
-				SecurityException e )
-		{
-			throw new IllegalStateException( "Cannot create scene: " + scene, e );
-		}
-				
-	}
+    public ScenesDefinition(String scene, String type) { this.scene = scene; this.type = type; }
 
-	public String getScene( )
-	{
-		return scene;
-	}
+    public Scene getNewScene()
+    {
+        if (scene == null || scene.isBlank()) throw new IllegalArgumentException("Scene resource/class is required");
+        try
+        {
+            if ("js".equalsIgnoreCase(type)) return new SceneJs(new String[] {scene});
+            if (!"java".equalsIgnoreCase(type)) throw new IllegalArgumentException("Unsupported scene type: " + type);
+            return Class.forName(scene).asSubclass(Scene.class).getDeclaredConstructor().newInstance();
+        }
+        catch (ReflectiveOperationException | IllegalArgumentException exception)
+        {
+            throw new IllegalStateException("Cannot create scene: " + scene, exception);
+        }
+    }
 
-	public void setScene( String scene )
-	{
-		this.scene = scene;
-	}
+    public String getScene() { return scene; }
+    public void setScene(String scene) { this.scene = scene; }
+    public String getTitle() { return title == null || title.isBlank() ? scene : title; }
+    public void setTitle(String title) { this.title = title; }
+    public boolean isMenu() { return !Boolean.FALSE.equals(menu); }
+    public void setMenu(Boolean menu) { this.menu = menu; }
 }

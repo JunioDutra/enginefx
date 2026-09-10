@@ -126,9 +126,7 @@ public class LwjglVulkanFrameRenderer implements AutoCloseable
 			swapchain.getImageFormat( ) == org.lwjgl.vulkan.VK10.VK_FORMAT_B8G8R8A8_SRGB || swapchain.getImageFormat( ) == org.lwjgl.vulkan.VK10.VK_FORMAT_R8G8B8A8_SRGB );
 		textureCache = new LwjglVulkanTextureCache( device, imageStagingCache, quadPipeline.getDescriptorSetLayout( ) );
 		fontCache = new LwjglVulkanFontCache( );
-                java.awt.image.BufferedImage b = new java.awt.image.BufferedImage( 1, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB );
-                b.setRGB( 0, 0, 0xFFFFFFFF );
-                whiteImage = new br.com.engine.graphics.Image( b );
+		whiteImage = new br.com.engine.graphics.Image( 1, 1, new byte[] { (byte)255, (byte)255, (byte)255, (byte)255 } );
 		vertexBuffer = new LwjglVulkanDynamicVertexBuffer( device, 65536 * 6 * 8 * 4 ); // 64k quads, 6 verts, 8 floats, 4 bytes
 		imageAvailableSemaphore = createSemaphore( );
 		renderFinishedSemaphores = new long[swapchain.getImageCount( )];
@@ -356,7 +354,7 @@ public class LwjglVulkanFrameRenderer implements AutoCloseable
 		int vertexCount;
 	}
 
-	    private void recordCommandBuffer( MemoryStack stack, int imageIndex, VulkanGraphicsContext graphicsContext )
+    private void recordCommandBuffer( MemoryStack stack, int imageIndex, VulkanGraphicsContext graphicsContext )
     {
         checkResult( vkResetCommandBuffer( commandBuffers[imageIndex], 0 ), "reset command buffer" );
 
@@ -439,19 +437,19 @@ public class LwjglVulkanFrameRenderer implements AutoCloseable
                     }
                     yBuffer.put( 0, baselineY );
 
-                    java.awt.Color jColor = command.fill( ).toAwtColor( );
-                    float r = jColor.getRed( ) / 255.0f;
-                    float g = jColor.getGreen( ) / 255.0f;
-                    float b = jColor.getBlue( ) / 255.0f;
-                    float a = jColor.getAlpha( ) / 255.0f;
+                    float r = command.fill( ).red( );
+                    float g = command.fill( ).green( );
+                    float b = command.fill( ).blue( );
+                    float a = command.fill( ).alpha( );
 
-                    for( int i = 0; i < command.text( ).length( ); i++ )
+                    for( int i = 0; i < command.text( ).length( ); )
                     {
-                        char c = command.text( ).charAt( i );
+                        int c = command.text( ).codePointAt( i );
+                        i += Character.charCount(c);
                         if( c == '\n' )
                         {
                             xBuffer.put( 0, (float)command.x( ) );
-                            yBuffer.put( 0, yBuffer.get( 0 ) + vFont.ascent - vFont.descent );
+                            yBuffer.put( 0, yBuffer.get( 0 ) + command.font().getLineHeight() );
                             continue;
                         }
                         if( c < LwjglVulkanFontCache.FIRST_CHAR )
@@ -489,11 +487,10 @@ public class LwjglVulkanFrameRenderer implements AutoCloseable
                     float x1 = (float)(command.x() + command.width());
                     float y1 = (float)(command.y() + command.height());
 
-                    java.awt.Color jColor = command.fill().toAwtColor();
-                    float r = jColor.getRed() / 255.0f;
-                    float g = jColor.getGreen() / 255.0f;
-                    float b = jColor.getBlue() / 255.0f;
-                    float a = jColor.getAlpha() / 255.0f;
+                    float r = command.fill().red();
+                    float g = command.fill().green();
+                    float b = command.fill().blue();
+                    float a = command.fill().alpha();
 
                     if( batches.isEmpty() || batches.get( batches.size() - 1 ).texture != texture )
                     {
@@ -516,11 +513,10 @@ public class LwjglVulkanFrameRenderer implements AutoCloseable
                 {
                     LwjglVulkanTextureCache.Texture texture = textureCache.get( whiteImage );
 
-                    java.awt.Color jColor = command.fill().toAwtColor();
-                    float r = jColor.getRed() / 255.0f;
-                    float g = jColor.getGreen() / 255.0f;
-                    float b = jColor.getBlue() / 255.0f;
-                    float a = jColor.getAlpha() / 255.0f;
+                    float r = command.fill().red();
+                    float g = command.fill().green();
+                    float b = command.fill().blue();
+                    float a = command.fill().alpha();
 
                     if( batches.isEmpty() || batches.get( batches.size() - 1 ).texture != texture )
                     {
@@ -689,4 +685,3 @@ public class LwjglVulkanFrameRenderer implements AutoCloseable
 		}
 	}
 }
-

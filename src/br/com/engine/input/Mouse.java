@@ -2,42 +2,45 @@ package br.com.engine.input;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import br.com.engine.interfaces.IMouseClick;
 
-public class Mouse
+/** Ordered subscriptions. Removing a listener during dispatch prevents subsequent invocation. */
+public final class Mouse
 {
-    private static Mouse instance;
+    private static final Mouse INSTANCE = new Mouse();
+    private final List<Subscription> subscriptions = new ArrayList<>();
+    private Mouse() { }
+    public static Mouse infInstace() { return INSTANCE; }
 
-    private List<IMouseClick> onClick = new ArrayList<>( );
-
-    private Mouse( ){ }
-
-    public static Mouse infInstace( )
+    private final class Subscription implements InputSubscription
     {
-        if( instance == null )
-        {
-            instance = new Mouse( );
-        }
-        return instance;
+        final Object owner;
+        final IMouseClick listener;
+        boolean closed;
+        Subscription(Object owner, IMouseClick listener) { this.owner = owner; this.listener = listener; }
+        @Override public void close() { closed = true; subscriptions.remove(this); }
     }
 
-    public void addListener( IMouseClick click )
+    public InputSubscription addListener(Object owner, IMouseClick listener)
     {
-        onClick.add( click );
+        if (owner == null || listener == null) throw new IllegalArgumentException("Mouse listener and owner are required");
+        for (Subscription subscription : subscriptions)
+            if (subscription.owner == owner && subscription.listener == listener) return subscription;
+        Subscription subscription = new Subscription(owner, listener);
+        subscriptions.add(subscription);
+        return subscription;
     }
 
-    public void click( double x, double y )
+    public void click(double x, double y)
     {
-        MouseEvent event = new MouseEvent( x, y );
-        for( IMouseClick iMouseClick : onClick )
-        {
-            iMouseClick.onClick( event );
-        }
+        MouseEvent event = new MouseEvent(x, y);
+        for (Subscription subscription : List.copyOf(subscriptions))
+            if (!subscription.closed) subscription.listener.onClick(event);
     }
 
-    public void clear( )
+    public void releaseOwner(Object owner)
     {
-        onClick.clear( );
+        for (Subscription subscription : List.copyOf(subscriptions))
+            if (subscription.owner == owner) subscription.close();
     }
 }

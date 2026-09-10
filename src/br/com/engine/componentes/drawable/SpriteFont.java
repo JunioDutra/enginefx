@@ -17,74 +17,54 @@ import br.com.engine.resources.ResourceManager;
 public class SpriteFont extends SimpleComponent
 {
 	private String  texto    = "";
-	private Vector2 position = new Vector2( 0, 0 ); 
+	private Vector2 position = new Vector2( 0, 0 );
 	private Color   color    = Color.BLACK;
 	private int     fontSize;
-	
+
 	private Font font;
-	
-	private EngineGraphicsContext graphics;   
-	
+
+	private EngineGraphicsContext graphics;
+
 	private String fontName;
 
-	public SpriteFont( int fontSize )
+	public SpriteFont(int fontSize) { this("fonts/font.ttf", fontSize); }
+
+    public SpriteFont(String name) { this(name, 20); }
+
+    public SpriteFont(String name, int fontSize)
+    {
+        this.fontName = name;
+        this.fontSize = fontSize;
+        loadFont();
+    }
+
+    public SpriteFont() { this("fonts/font.ttf", 20); }
+
+    @Override
+	public void setup( )
 	{
-		this( );
-		
-		this.fontSize = fontSize;
-		loadFont( );
-	}
-	
-	public SpriteFont( String name )
-	{
-		this( );
-		
-		this.fontName = name;
-		loadFont( );
-	}
-	
-	public SpriteFont( String name, int fontSize )
-	{
-		this( );
-		
-		this.fontSize = fontSize;
-		this.fontName = name;
-		
-		loadFont( );
-	}
-	
-	public SpriteFont( )
-	{
-		fontSize = 20;
-		
-		loadFont( );
-	}
-	
-	@Override
-	public void setup( ) 
-	{
-		
+
 	}
 
 	@Override
-	public void draw( ) 
+	public void draw( )
 	{
 		this.graphics = ControleBase.getInstance( ).getGraphics2d( );
-		
+
 		graphics.save( );
-		
+
 		int x = (int)getParent( ).getPosition( ).getX( ) + (int)getPosition( ).getX( );
         int y = (int)getParent( ).getPosition( ).getY( ) + (int)getPosition( ).getY( );
-		
+
 		graphics.setTextBaseline(VPos.TOP);
-		
+
 		graphics.setFont( font );
 		graphics.setFill( getColor( ) );
 	    graphics.fillText( getTexto( ), x, y );
-	    
+
 	    graphics.restore( );
-	}	
-	
+	}
+
 	public String getTexto( )
 	{
 		return texto;
@@ -94,7 +74,7 @@ public class SpriteFont extends SimpleComponent
     {
 	    return font.getStringWidth( getTexto( ) );
     }
-	
+
 	public void setText( String text )
 	{
 		this.texto = text;
@@ -104,18 +84,18 @@ public class SpriteFont extends SimpleComponent
 	{
 		return position;
 	}
-	
+
 	public void setPosition( Vector2 position )
 	{
 		this.position = position;
 	}
-	
+
 	public void setPosition( int x, int y )
 	{
 		this.position.setPosition( x, y );
 	}
 
-	public Color getColor( ) 
+	public Color getColor( )
 	{
 		return color;
 	}
@@ -124,57 +104,59 @@ public class SpriteFont extends SimpleComponent
 	{
 		this.color = color;
 	}
-	
+
 	public int getFontSize( )
 	{
 		return fontSize;
 	}
-	
+
 	public void setFontSize( int fontSize )
 	{
 		this.fontSize = fontSize;
-		
-		loadFont( ); 
+
+		loadFont( );
 	}
-	
+
 	private void loadFont( )
 	{
 		if( StringUtils.isBlank( getFontName() ) )
 		{
-			font = new Font( "Arial", fontSize );
+			Map<String, Object> emptyMap = new HashMap<String, Object>( );
+			emptyMap.put( "size", fontSize );
+			font = ResourceManager.font( "fonts/font.ttf", ((Number)emptyMap.get( "size" )).floatValue( ) );
 		}
 		else
 		{
 			Map<String, Object> emptyMap = new HashMap<String, Object>( );
 			emptyMap.put( "size", fontSize );
-			
-			font = ResourceManager.loadResource( this.getFontName(), ResourceManager.FONT, Font.class, emptyMap ); 
+
+			font = ResourceManager.font( this.getFontName(), ((Number)emptyMap.get( "size" )).floatValue( ) );
 		}
 	}
-	
+
 	public int getWidth( )
 	{
 		return font.getStringWidth( getTexto( ) );
 	}
-	
+
 	public int getHeight( )
 	{
 		return font.getHeight( );
 	}
-	
+
 	private String getFontName() {
 		return fontName;
 	}
-	
+
 	public void setFont( String fontName )
 	{
 		this.fontName = fontName;
-		
+
 		loadFont();
 	}
 
 	@Override
-	public void update( long time ) 
+	public void update( long time )
 	{
 	}
 }

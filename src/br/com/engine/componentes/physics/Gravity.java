@@ -8,11 +8,11 @@ public class Gravity extends SimpleComponent
 {
 	private Vector2 gravity;
 	private Vector2 gravityVolocity;
-	
+
 	public Gravity( Vector2 gravity )
 	{
 		this.gravity = gravity;
-		gravityVolocity = new Vector2(0, 0.1f);
+		gravityVolocity = new Vector2(0, 6f);
 	}
 
 	@Override
@@ -24,16 +24,14 @@ public class Gravity extends SimpleComponent
 	public void draw( )
 	{
 	}
-	
+
 	@Override
-	public void update( long time )
+	public void fixedUpdate( float deltaSeconds )
 	{
 		GameObject parent = getParent( );
-		
-		System.out.println(String.format("%.4f", (time / 1000f)));
-		
-		parent.getPosition( ).plus( gravityVolocity.x, gravityVolocity.y );
-		
+
+		parent.getPosition( ).plus( gravityVolocity.x * deltaSeconds, gravityVolocity.y * deltaSeconds );
+
 //		if( parent.getPosition( ).y < gravity.y )
 //		{
 //			if( gravity.y - parent.getPosition( ).y < gravityVolocity.y + time )
@@ -42,7 +40,7 @@ public class Gravity extends SimpleComponent
 //			}
 //			else
 //			{
-//				parent.getPosition( ).plus( gravityVolocity );	
+//				parent.getPosition( ).plus( gravityVolocity );
 //			}
 //		}
 //		else if( parent.getPosition( ).y > gravity.y )
@@ -53,8 +51,10 @@ public class Gravity extends SimpleComponent
 //			}
 //			else
 //			{
-//				parent.getPosition( ).less( gravityVolocity );	
+//				parent.getPosition( ).less( gravityVolocity );
 //			}
 //		}
 	}
+
+	@Override public void update( long time ) { }
 }

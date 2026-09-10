@@ -1,7 +1,5 @@
 package br.com.engine.platform.lwjgl;
 
-import java.awt.image.BufferedImage;
-import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.IdentityHashMap;
@@ -44,31 +42,20 @@ public class LwjglVulkanFontCache implements AutoCloseable
 
 	public VulkanFont get( Font font )
 	{
-		String source = font.getSourceFile( ) == null ? "Arial" : font.getSourceFile( ).getAbsolutePath( );
-		return fonts.computeIfAbsent( new FontKey( source, font.toAwtFont( ).getSize2D( ) ), ignored -> createFont( font ) );
+		return fonts.computeIfAbsent( new FontKey( font.getResourceId( ), font.getPixelSize( ) ), ignored -> createFont( font ) );
 	}
 
 	private VulkanFont createFont( Font font )
 	{
-		File file = font.getSourceFile( );
-		if( file == null || !file.exists() )
-		{
-			file = new File( "C:\\Windows\\Fonts\\arial.ttf" );
-		}
-
-		if( !file.exists( ) )
-		{
-			throw new RuntimeException( "Font file not found!" );
-		}
-
 		try
 		{
-			byte[] bytes = Files.readAllBytes( file.toPath( ) );
+			byte[] bytes = font.copyData( );
+			if( bytes.length == 0 ) throw new IllegalStateException( "Font bytes are unavailable for " + font.getResourceId( ) );
 			ByteBuffer ttfBuffer = BufferUtils.createByteBuffer( bytes.length );
 			ttfBuffer.put( bytes );
 			ttfBuffer.flip( );
 
-			float pixelHeight = font.toAwtFont( ).getSize2D( );
+			float pixelHeight = font.getPixelSize( );
 
 			STBTTFontinfo fontInfo = STBTTFontinfo.create( );
 			if( !STBTruetype.stbtt_InitFont( fontInfo, ttfBuffer ) )
@@ -96,18 +83,21 @@ public class LwjglVulkanFontCache implements AutoCloseable
 				throw new RuntimeException( "Failed to bake font bitmap" );
 			}
 
-			BufferedImage bufferedImage = new BufferedImage( atlasWidth, atlasHeight, BufferedImage.TYPE_INT_ARGB );
+			byte[] rgba = new byte[atlasWidth * atlasHeight * 4];
+			int offset = 0;
 			for( int y = 0; y < atlasHeight; y++ )
 			{
 				for( int x = 0; x < atlasWidth; x++ )
 				{
 					byte alpha = bitmapBuffer.get( y * atlasWidth + x );
-					int argb = ((alpha & 0xFF) << 24) | 0x00FFFFFF;
-					bufferedImage.setRGB( x, y, argb );
+					rgba[offset++] = (byte)255;
+					rgba[offset++] = (byte)255;
+					rgba[offset++] = (byte)255;
+					rgba[offset++] = alpha;
 				}
 			}
 
-			return new VulkanFont( new Image( bufferedImage ), charData, atlasWidth, atlasHeight, ascent, descent );
+			return new VulkanFont( new Image( atlasWidth, atlasHeight, rgba ), charData, atlasWidth, atlasHeight, ascent, descent );
 		}
 		catch( Exception e )
 		{

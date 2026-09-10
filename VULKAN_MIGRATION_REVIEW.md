@@ -1,3 +1,5 @@
+> Auditoria original preservada como histórico. O estado atualizado, as correções desta rodada e as limitações do ambiente estão em [REVIEW.md](REVIEW.md) e [PRD.md](PRD.md). Algumas descrições abaixo refletem o código anterior à implementação 2.0.0 revisada.
+
 # Auditoria da migração Vulkan
 
 Data: 10/09/2026. Projetos: `enginefx` e `dinofx`.

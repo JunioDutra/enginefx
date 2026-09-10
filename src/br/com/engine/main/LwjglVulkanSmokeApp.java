@@ -40,10 +40,12 @@ public final class LwjglVulkanSmokeApp
 			LwjglVulkanSwapchain swapchain = new LwjglVulkanSwapchain( device, window.getSurface( ), window.getWidth( ), window.getHeight( ) );
 			LwjglVulkanFrameRenderer renderer = new LwjglVulkanFrameRenderer( device, swapchain ) )
 		{
+			var report = device.getReport( );
 			window.show( );
 			System.out.println( "LWJGL Vulkan smoke app started" );
 			System.out.println( "Vulkan surface created: " + window.getSurface( ) );
 			System.out.println( "Vulkan queues selected: graphics=" + device.getQueueFamilyIndices( ).graphicsFamily( ) + ", present=" + device.getQueueFamilyIndices( ).presentFamily( ) );
+			System.out.println( "Vulkan device: " + report.deviceName( ) + ", api=" + report.apiVersion( ) + ", driver=" + report.driverVersion( ) + ", swapchain-maintenance1=" + report.supportsSwapchainMaintenance1( ) );
 			System.out.println( "Vulkan swapchain created: images=" + swapchain.getImageCount( ) + ", extent=" + swapchain.getWidth( ) + "x" + swapchain.getHeight( ) + ", format=" + swapchain.getImageFormat( ) );
 
 			for( int frame = 0; frame < 120 && !window.shouldClose( ); frame++ )

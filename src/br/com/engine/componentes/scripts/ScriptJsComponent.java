@@ -11,7 +11,7 @@ import br.com.engine.core.Screen;
 import br.com.engine.input.KeyBoard;
 import br.com.engine.resources.ResourceManager;
 
-public class ScriptJsComponent extends SimpleComponent 
+public class ScriptJsComponent extends SimpleComponent
 {
 	private Invocable invoc;
 	private String jsName;
@@ -19,25 +19,25 @@ public class ScriptJsComponent extends SimpleComponent
 	public ScriptJsComponent(String jsName) {
 		this.jsName = jsName;
 	}
-	
+
 	@Override
 	public void setup() {
-		
+
 		Map<String, Object> map = new HashMap<String, Object>( );
 		map.put("gameObject", getParent());
 		map.put("screen", ControleBase.getInstance().getScreen());
 		map.put("keyBoard", KeyBoard.infInstace());
-		
-		invoc = ResourceManager.loadResource( jsName, ResourceManager.SCRIPT, Invocable.class, map );
+
+		invoc = ResourceManager.script( jsName, map );
 	}
 
 	@Override
-	public void update( long time ) 
+	public void update( long time )
 	{
 		 try
          {
              invoc.invokeFunction( "update", time );
-         } 
+         }
          catch( Exception e )
          {
              throw new RuntimeException( e );

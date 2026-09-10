@@ -1,25 +1,7 @@
 package br.com.engine.platform.lwjgl;
 
-import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-import static org.lwjgl.vulkan.VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-import static org.lwjgl.vulkan.VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
-import static org.lwjgl.vulkan.VK10.vkAllocateMemory;
-import static org.lwjgl.vulkan.VK10.vkBindBufferMemory;
-import static org.lwjgl.vulkan.VK10.vkCreateBuffer;
-import static org.lwjgl.vulkan.VK10.vkDestroyBuffer;
-import static org.lwjgl.vulkan.VK10.vkFreeMemory;
-import static org.lwjgl.vulkan.VK10.vkGetBufferMemoryRequirements;
-import static org.lwjgl.vulkan.VK10.vkGetPhysicalDeviceMemoryProperties;
-import static org.lwjgl.vulkan.VK10.vkMapMemory;
-import static org.lwjgl.vulkan.VK10.vkUnmapMemory;
-
-import java.nio.FloatBuffer;
+import static org.lwjgl.vulkan.VK10.*;
 import java.nio.LongBuffer;
-
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkBufferCreateInfo;
@@ -27,110 +9,110 @@ import org.lwjgl.vulkan.VkMemoryAllocateInfo;
 import org.lwjgl.vulkan.VkMemoryRequirements;
 import org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties;
 
-public class LwjglVulkanDynamicVertexBuffer implements AutoCloseable
+/** Host-visible vertex storage. The caller must wait for all readers before upload/growth. */
+public final class LwjglVulkanDynamicVertexBuffer implements AutoCloseable
 {
-	private final LwjglVulkanDevice device;
-	private final long buffer;
-	private final long memory;
-	private final long size;
+    private static final long MAX_BYTES = Integer.MAX_VALUE - 3L;
+    private final LwjglVulkanDevice device;
+    private long buffer;
+    private long memory;
+    private long size;
 
-	public LwjglVulkanDynamicVertexBuffer( LwjglVulkanDevice device, long size )
-	{
-		this.device = device;
-		this.size = size;
+    public LwjglVulkanDynamicVertexBuffer(LwjglVulkanDevice device, long initialSize)
+    {
+        if (initialSize <= 0 || initialSize > MAX_BYTES || initialSize % Float.BYTES != 0)
+            throw new IllegalArgumentException("Vertex buffer size must be positive, float-aligned and below 2 GiB");
+        this.device = device;
+        allocate(initialSize);
+    }
 
-		try( MemoryStack stack = stackPush( ) )
-		{
-			VkBufferCreateInfo bufferInfo = VkBufferCreateInfo.calloc( stack )
-				.sType( VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO )
-				.size( size )
-				.usage( VK_BUFFER_USAGE_VERTEX_BUFFER_BIT )
-				.sharingMode( org.lwjgl.vulkan.VK10.VK_SHARING_MODE_EXCLUSIVE );
+    public long getBuffer() { return buffer; }
+    public long getCapacityBytes() { return size; }
 
-			LongBuffer pBuffer = stack.mallocLong( 1 );
-			int result = vkCreateBuffer( device.getLogicalDevice( ), bufferInfo, null, pBuffer );
+    static long capacityFor(long current, long required)
+    {
+        if (current <= 0 || current > MAX_BYTES || required < 0 || required > MAX_BYTES)
+            throw new IllegalArgumentException("Invalid vertex buffer capacity");
+        long grown = current;
+        while (grown < required) grown = Math.min(MAX_BYTES, grown * 2);
+        return grown;
+    }
 
-			if( result != VK_SUCCESS )
-			{
-				throw new IllegalStateException( "Failed to create Vulkan dynamic vertex buffer: " + result );
-			}
+    public void upload(float[] data, int floatCount)
+    {
+        if (buffer == 0) throw new IllegalStateException("Vertex buffer is closed");
+        if (data == null || floatCount < 0 || floatCount > data.length)
+            throw new IllegalArgumentException("Invalid vertex float count: " + floatCount);
+        if (floatCount == 0) return;
+        long required = (long)floatCount * Float.BYTES;
+        if (required > size)
+        {
+            long oldBuffer = buffer, oldMemory = memory;
+            allocate(capacityFor(size, required));
+            vkDestroyBuffer(device.getLogicalDevice(), oldBuffer, null);
+            vkFreeMemory(device.getLogicalDevice(), oldMemory, null);
+        }
+        try (MemoryStack stack = MemoryStack.stackPush())
+        {
+            PointerBuffer pointer = stack.mallocPointer(1);
+            check(vkMapMemory(device.getLogicalDevice(), memory, 0, required, 0, pointer), "map vertex memory");
+            try { pointer.getFloatBuffer(floatCount).put(data, 0, floatCount); }
+            finally { vkUnmapMemory(device.getLogicalDevice(), memory); }
+        }
+    }
 
-			buffer = pBuffer.get( 0 );
+    private void allocate(long bytes)
+    {
+        long newBuffer = 0, newMemory = 0;
+        boolean installed = false;
+        try (MemoryStack stack = MemoryStack.stackPush())
+        {
+            LongBuffer pointer = stack.mallocLong(1);
+            VkBufferCreateInfo info = VkBufferCreateInfo.calloc(stack).sType(VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO)
+                .size(bytes).usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT).sharingMode(VK_SHARING_MODE_EXCLUSIVE);
+            check(vkCreateBuffer(device.getLogicalDevice(), info, null, pointer), "create vertex buffer");
+            newBuffer = pointer.get(0);
+            VkMemoryRequirements requirements = VkMemoryRequirements.malloc(stack);
+            vkGetBufferMemoryRequirements(device.getLogicalDevice(), newBuffer, requirements);
+            VkMemoryAllocateInfo allocation = VkMemoryAllocateInfo.calloc(stack).sType(VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO)
+                .allocationSize(requirements.size()).memoryTypeIndex(findMemoryType(stack, requirements.memoryTypeBits()));
+            check(vkAllocateMemory(device.getLogicalDevice(), allocation, null, pointer), "allocate vertex memory");
+            newMemory = pointer.get(0);
+            check(vkBindBufferMemory(device.getLogicalDevice(), newBuffer, newMemory, 0), "bind vertex memory");
+            buffer = newBuffer;
+            memory = newMemory;
+            size = bytes;
+            installed = true;
+        }
+        finally
+        {
+            if (!installed)
+            {
+                if (newBuffer != 0) vkDestroyBuffer(device.getLogicalDevice(), newBuffer, null);
+                if (newMemory != 0) vkFreeMemory(device.getLogicalDevice(), newMemory, null);
+            }
+        }
+    }
 
-			VkMemoryRequirements memRequirements = VkMemoryRequirements.malloc( stack );
-			vkGetBufferMemoryRequirements( device.getLogicalDevice( ), buffer, memRequirements );
+    private int findMemoryType(MemoryStack stack, int bits)
+    {
+        VkPhysicalDeviceMemoryProperties properties = VkPhysicalDeviceMemoryProperties.malloc(stack);
+        vkGetPhysicalDeviceMemoryProperties(device.getPhysicalDevice(), properties);
+        int required = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+        for (int i = 0; i < properties.memoryTypeCount(); i++)
+            if ((bits & (1 << i)) != 0 && (properties.memoryTypes(i).propertyFlags() & required) == required) return i;
+        throw new IllegalStateException("No compatible Vulkan vertex memory type");
+    }
 
-			VkMemoryAllocateInfo allocInfo = VkMemoryAllocateInfo.calloc( stack )
-				.sType( VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO )
-				.allocationSize( memRequirements.size( ) )
-				.memoryTypeIndex( findMemoryType( stack, memRequirements.memoryTypeBits( ), VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT ) );
+    private static void check(int result, String operation)
+    {
+        if (result != VK_SUCCESS) throw new IllegalStateException("Failed to " + operation + ": " + result);
+    }
 
-			LongBuffer pBufferMemory = stack.mallocLong( 1 );
-			result = vkAllocateMemory( device.getLogicalDevice( ), allocInfo, null, pBufferMemory );
-
-			if( result != VK_SUCCESS )
-			{
-				throw new IllegalStateException( "Failed to allocate Vulkan dynamic vertex buffer memory: " + result );
-			}
-
-			memory = pBufferMemory.get( 0 );
-
-			vkBindBufferMemory( device.getLogicalDevice( ), buffer, memory, 0 );
-		}
-	}
-
-	public long getBuffer( )
-	{
-		return buffer;
-	}
-
-	public void upload( float[] data, int floatCount )
-	{
-		int capacity = (int)(size / 4);
-
-		// Draw counts must always match the uploaded range. Never truncate a frame.
-		if( floatCount < 0 || floatCount > data.length || floatCount > capacity )
-		{
-			throw new IllegalArgumentException( "Vertex data exceeds source or GPU buffer capacity: " + floatCount );
-		}
-
-		try( MemoryStack stack = stackPush( ) )
-		{
-			PointerBuffer pointer = stack.mallocPointer( 1 );
-			int result = vkMapMemory( device.getLogicalDevice( ), memory, 0, size, 0, pointer );
-
-			if( result != VK_SUCCESS )
-			{
-				throw new IllegalStateException( "Failed to map Vulkan dynamic vertex buffer memory" );
-			}
-
-			FloatBuffer pData = pointer.getFloatBuffer( (int)(size / 4) );
-			pData.put( data, 0, floatCount );
-
-			vkUnmapMemory( device.getLogicalDevice( ), memory );
-		}
-	}
-
-	@Override
-	public void close( )
-	{
-		vkDestroyBuffer( device.getLogicalDevice( ), buffer, null );
-		vkFreeMemory( device.getLogicalDevice( ), memory, null );
-	}
-
-	private int findMemoryType( MemoryStack stack, int typeFilter, int properties )
-	{
-		VkPhysicalDeviceMemoryProperties memProperties = VkPhysicalDeviceMemoryProperties.malloc( stack );
-		vkGetPhysicalDeviceMemoryProperties( device.getPhysicalDevice( ), memProperties );
-
-		for( int i = 0; i < memProperties.memoryTypeCount( ); i++ )
-		{
-			if( (typeFilter & (1 << i)) != 0 && (memProperties.memoryTypes( i ).propertyFlags( ) & properties) == properties )
-			{
-				return i;
-			}
-		}
-
-		throw new RuntimeException( "Failed to find suitable Vulkan dynamic vertex buffer memory type" );
-	}
+    @Override public void close()
+    {
+        if (buffer != 0) vkDestroyBuffer(device.getLogicalDevice(), buffer, null);
+        if (memory != 0) vkFreeMemory(device.getLogicalDevice(), memory, null);
+        buffer = memory = size = 0;
+    }
 }

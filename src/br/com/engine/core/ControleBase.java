@@ -9,6 +9,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import br.com.engine.core.annotation.Bootable;
 import br.com.engine.graphics.Color;
 import br.com.engine.graphics.EngineGraphicsContext;
+import br.com.engine.graphics.Font;
 import br.com.engine.graphics.Paint;
 import br.com.engine.interfaces.LoopSteps;
 import br.com.engine.resources.Configurations;
@@ -20,9 +21,10 @@ public class ControleBase implements LoopSteps
 {
     private static ControleBase controleBase;
 
-    private long  previous = System.currentTimeMillis( );
     private long  previousNanos = System.nanoTime( );
-    private long  nanosCarry = 0;
+    private static final float FIXED_STEP_SECONDS = 1f / 60f;
+    private static final int MAX_FIXED_STEPS_PER_FRAME = 5;
+    private float physicsAccumulator;
     private final Screen  screen;
     private Scene gameLogic;
     private boolean running = true;
@@ -41,10 +43,12 @@ public class ControleBase implements LoopSteps
     private long       timeOnStart  = System.currentTimeMillis( );
 
     private final Configurations configurations;
+    private final Font debugFont;
 
     private ControleBase( )
     {
-        configurations = ResourceManager.loadResource( null, ResourceManager.CONFIGURACOES, Configurations.class );
+        configurations = ResourceManager.configurations( );
+        debugFont = Boolean.TRUE.equals(configurations.isDebugMode()) ? ResourceManager.font("fonts/font.ttf", 12) : null;
         screen = new Screen( configurations.getSizeW(), configurations.getSizeH() );
         this.scenes = new ArrayList<Scene>( );
         this.sceneDefinitions = new ArrayList<ScenesDefinition>( );
@@ -60,7 +64,7 @@ public class ControleBase implements LoopSteps
     }
 
     @Override
-    public void setup( ) 
+    public void setup( )
     {
         renderLoadingScreen();
 
@@ -86,12 +90,6 @@ public class ControleBase implements LoopSteps
 
         Time.update( elapsedNanos );
 
-        // Milissegundos legados para o param update(long time): acumula o resto
-        // em nanos para não perder frações em frames de menos de 1 ms.
-        nanosCarry += elapsedNanos;
-        long time = nanosCarry / 1_000_000L;
-        nanosCarry -= time * 1_000_000L;
-
         if( bMudaScene )
         {
             changeScene( );
@@ -99,14 +97,22 @@ public class ControleBase implements LoopSteps
 
         if( running )
         {
-            gameLogic.update( time );
+            gameLogic.update( Time.getDeltaMillis( ) );
+            physicsAccumulator = Math.min( physicsAccumulator + Time.getDeltaTime( ), FIXED_STEP_SECONDS * MAX_FIXED_STEPS_PER_FRAME );
+            int steps = 0;
+            while( physicsAccumulator >= FIXED_STEP_SECONDS && steps++ < MAX_FIXED_STEPS_PER_FRAME )
+            {
+                gameLogic.fixedUpdate( FIXED_STEP_SECONDS );
+                physicsAccumulator -= FIXED_STEP_SECONDS;
+            }
+            Time.setInterpolationAlpha( physicsAccumulator / FIXED_STEP_SECONDS );
         }
 
         framesRender++;
     }
 
     @Override
-    public void renderGraphics( ) 
+    public void renderGraphics( )
     {
         EngineGraphicsContext g = getScreen().getGraphicsContext( );
 
@@ -120,9 +126,10 @@ public class ControleBase implements LoopSteps
             gameLogic.draw( g );
         }
 
-        if( configurations.isDebugMode( ) )
+        if( Boolean.TRUE.equals(configurations.isDebugMode()) )
         {
             g.setFill( Paint.valueOf( Color.BLACK.toString( ) ) );
+			g.setFont( debugFont );
             g.fillText( calculaFrames( ), 25, 25 );
         }
     }
@@ -171,17 +178,22 @@ public class ControleBase implements LoopSteps
     {
         if( nNextScene >= 0 && nNextScene < this.scenes.size( ) )
         {
-            gameLogic.onCallChange( );
-            renderLoadingScreen( );
+            try { gameLogic.onCallChange(); } finally { gameLogic.dispose(); }
+
 
             getScreen( ).getGraphicsContext( ).resetTransform( );
-			br.com.engine.input.Mouse.infInstace( ).clear( );
-
             Scene scene = sceneDefinitions.get( nNextScene ).getNewScene( );
             scenes.set( nNextScene, scene );
 
-            scene.setup( );
             gameLogic = scene;
+            try { scene.setup(); }
+            catch (RuntimeException failure) {
+                try { scene.dispose(); } catch (RuntimeException cleanup) { failure.addSuppressed(cleanup); }
+                throw failure;
+            }
+            physicsAccumulator = 0;
+            Time.reset();
+            previousNanos = System.nanoTime();
 
             bMudaScene = false;
         }
@@ -190,10 +202,14 @@ public class ControleBase implements LoopSteps
     @Override
     public void tearDown( )
     {
+        stop();
     }
 
     public void stop( )
     {
+        running = false;
+        try { if (gameLogic != null) gameLogic.dispose(); }
+        finally { scenes.clear(); br.com.engine.resources.ContentLoader.clearCaches(); }
     }
 
     public EngineGraphicsContext getGraphics2d( )
@@ -209,12 +225,12 @@ public class ControleBase implements LoopSteps
     {
         return nLastScene;
     }
-    
+
     public Scene getCurrentScene( )
     {
         return this.gameLogic;
     }
-    
+
     public void setRunning( boolean running )
     {
         this.running = running;
@@ -225,9 +241,13 @@ public class ControleBase implements LoopSteps
         return configurations;
     }
 
+    public List<ScenesDefinition> getSceneDefinitions( )
+    {
+        return List.copyOf( sceneDefinitions );
+    }
+
     public Screen getScreen( )
     {
         return screen;
     }
 }
-

@@ -1,78 +1,14 @@
 package br.com.engine.resources;
 
-import java.util.Properties;
-
-public class ConfigurationsManager 
+/** Compatibility facade over application.json/config.json. */
+@Deprecated
+public final class ConfigurationsManager
 {
-	private static ConfigurationsManager propertiesBean;
-	
-	private Properties properties;
-	
-	private ConfigurationsManager( ) 
-	{ 
-		try 
-		{
-			this.properties = (Properties)ContentLoader.loadContent( "config.properties" );
-		} 
-		catch( Exception e )
-		{
-			System.err.println("config file not finded.");
-		}
-	}
-		
-	public static ConfigurationsManager getInstance( )
-	{
-		if( propertiesBean == null )
-			propertiesBean = new ConfigurationsManager( );
-		
-		return propertiesBean;
-	}
-	
-	public Integer getWidth( )
-	{
-		Integer width = null;
-		
-		try
-		{
-			width = new Integer( this.properties.getProperty( TiposPropertiesManager.SIZE_W.getValor( ) ) );
-		}
-		catch( Exception e )
-		{
-			
-		}
-		
-		return width;
-	}
-	
-	public Integer getHeight( )
-	{
-		Integer height = null;
-		
-		try
-		{
-			height = new Integer( this.properties.getProperty( TiposPropertiesManager.SIZE_H.getValor( ) ) );
-		}
-		catch( Exception e )
-		{
-			
-		}
-		
-		return height;
-	}
-	
-	public boolean getDebugMode( )
-	{
-		boolean debug = false;
-		
-		try
-		{
-			debug = new Boolean( this.properties.getProperty( TiposPropertiesManager.DEBUG_MODE.getValor( ) ) ).booleanValue( );
-		}
-		catch( Exception e )
-		{
-			
-		}
-		
-		return debug;
-	}
+    private static final ConfigurationsManager INSTANCE = new ConfigurationsManager();
+    private final Configurations configuration = ResourceManager.configurations();
+    private ConfigurationsManager() { }
+    public static ConfigurationsManager getInstance() { return INSTANCE; }
+    public Integer getWidth() { return configuration.getSizeW(); }
+    public Integer getHeight() { return configuration.getSizeH(); }
+    public boolean getDebugMode() { return Boolean.TRUE.equals(configuration.isDebugMode()); }
 }
