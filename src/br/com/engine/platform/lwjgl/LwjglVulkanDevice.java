@@ -97,13 +97,29 @@ public class LwjglVulkanDevice implements AutoCloseable
 			{
 				VkPhysicalDevice candidate = new VkPhysicalDevice( devices.get( index ), instance.getHandle( ) );
 
-				if( findQueueFamilies( candidate, surface ).isComplete( ) )
+				if( findQueueFamilies( candidate, surface ).isComplete( ) && supportsSwapchain( candidate, surface ) )
 				{
 					return candidate;
 				}
 			}
 
 			throw new IllegalStateException( "No Vulkan physical device supports graphics and presentation queues" );
+		}
+	}
+
+	private boolean supportsSwapchain( VkPhysicalDevice candidate, long surface )
+	{
+		try( MemoryStack stack = stackPush( ) )
+		{
+			IntBuffer count = stack.ints( 0 );
+			if( org.lwjgl.vulkan.VK10.vkEnumerateDeviceExtensionProperties( candidate, (String)null, count, null ) != VK_SUCCESS ) return false;
+			var extensions = org.lwjgl.vulkan.VkExtensionProperties.malloc( count.get( 0 ), stack );
+			if( org.lwjgl.vulkan.VK10.vkEnumerateDeviceExtensionProperties( candidate, (String)null, count, extensions ) != VK_SUCCESS ) return false;
+			boolean found = false;
+			for( int i = 0; i < count.get( 0 ); i++ ) found |= VK_KHR_SWAPCHAIN_EXTENSION_NAME.equals( extensions.get( i ).extensionNameString( ) );
+			if( !found ) return false;
+			if( org.lwjgl.vulkan.KHRSurface.vkGetPhysicalDeviceSurfaceFormatsKHR( candidate, surface, count, null ) != VK_SUCCESS || count.get( 0 ) == 0 ) return false;
+			return org.lwjgl.vulkan.KHRSurface.vkGetPhysicalDeviceSurfacePresentModesKHR( candidate, surface, count, null ) == VK_SUCCESS && count.get( 0 ) > 0;
 		}
 	}
 

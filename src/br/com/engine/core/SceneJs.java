@@ -35,7 +35,7 @@ public class SceneJs extends Scene
 		{
 			for( String goName : gameObectsNames )
 			{
-				JsonObject object = new GsonBuilder( ).create( ).fromJson( new FileReader( new File( "res/scripts/" + goName + ".json" ) ), JsonObject.class );
+				JsonObject object = (JsonObject)br.com.engine.resources.ContentLoader.loadContent( "scripts/" + goName + ".json" );
 				
 				loadGameObect( object );
 			}

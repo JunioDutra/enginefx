@@ -20,23 +20,27 @@ public class LwjglVulkanShaderCompiler
 	public static ByteBuffer compileShader( String source, int kind, String name )
 	{
 		long compiler = shaderc_compiler_initialize( );
-		long options = shaderc_compile_options_initialize( );
-		long result = shaderc_compile_into_spv( compiler, source, kind, name, "main", options );
-		
-		if( shaderc_result_get_compilation_status( result ) != shaderc_compilation_status_success )
+		if( compiler == 0 ) throw new IllegalStateException( "Cannot initialize shader compiler" );
+		long options = 0;
+		long result = 0;
+		try
 		{
-			throw new IllegalStateException( "Failed to compile shader " + name + ": " + shaderc_result_get_error_message( result ) );
+			options = shaderc_compile_options_initialize( );
+			if( options == 0 ) throw new IllegalStateException( "Cannot initialize shader options" );
+			result = shaderc_compile_into_spv( compiler, source, kind, name, "main", options );
+			if( result == 0 ) throw new IllegalStateException( "Shader compiler returned no result: " + name );
+			if( shaderc_result_get_compilation_status( result ) != shaderc_compilation_status_success )
+				throw new IllegalStateException( "Failed to compile shader " + name + ": " + shaderc_result_get_error_message( result ) );
+			ByteBuffer spv = shaderc_result_get_bytes( result );
+			ByteBuffer output = MemoryUtil.memAlloc( spv.remaining( ) );
+			output.put( spv ).flip( );
+			return output;
 		}
-		
-		ByteBuffer spv = shaderc_result_get_bytes( result );
-		ByteBuffer output = MemoryUtil.memAlloc( spv.capacity( ) );
-		output.put( spv );
-		output.flip( );
-		
-		shaderc_result_release( result );
-		shaderc_compile_options_release( options );
-		shaderc_compiler_release( compiler );
-		
-		return output;
+		finally
+		{
+			if( result != 0 ) shaderc_result_release( result );
+			if( options != 0 ) shaderc_compile_options_release( options );
+			shaderc_compiler_release( compiler );
+		}
 	}
 }

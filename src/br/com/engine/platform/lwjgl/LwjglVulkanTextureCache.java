@@ -117,6 +117,25 @@ public class LwjglVulkanTextureCache implements AutoCloseable
 		return textures.computeIfAbsent( image, this::createTexture );
 	}
 
+	/** Caller must have waited for the previous frame fence. */
+	public void retain( java.util.Set<Image> required )
+	{
+		var iterator = textures.entrySet( ).iterator( );
+		while( iterator.hasNext( ) )
+		{
+			var entry = iterator.next( );
+			if( required.contains( entry.getKey( ) ) ) continue;
+			Texture texture = entry.getValue( );
+			int result = org.lwjgl.vulkan.VK10.vkFreeDescriptorSets( device.getLogicalDevice( ), descriptorPool, texture.descriptorSet( ) );
+			if( result != VK_SUCCESS ) throw new IllegalStateException( "Cannot release texture descriptor: " + result );
+			vkDestroySampler( device.getLogicalDevice( ), texture.sampler( ), null );
+			vkDestroyImageView( device.getLogicalDevice( ), texture.imageView( ), null );
+			vkDestroyImage( device.getLogicalDevice( ), texture.image( ), null );
+			vkFreeMemory( device.getLogicalDevice( ), texture.memory( ), null );
+			iterator.remove( );
+		}
+	}
+
 	@Override
 	public void close( )
 	{
@@ -142,6 +161,7 @@ public class LwjglVulkanTextureCache implements AutoCloseable
 		long textureSampler = createSampler( );
 		long descriptorSet = allocateDescriptorSet( textureImageView, textureSampler );
 		uploadTexture( stagedImage, textureImage );
+		stagingCache.release( image );
 		return new Texture( textureImage, textureMemory, textureImageView, textureSampler, descriptorSet, stagedImage.width( ), stagedImage.height( ) );
 	}
 
@@ -346,7 +366,9 @@ public class LwjglVulkanTextureCache implements AutoCloseable
 			throw new IllegalStateException( "Failed to submit Vulkan texture upload command buffer: " + result );
 		}
 
-		vkQueueWaitIdle( device.getGraphicsQueue( ) );
+		result = vkQueueWaitIdle( device.getGraphicsQueue( ) );
+		if( result != VK_SUCCESS ) throw new IllegalStateException( "Texture upload wait failed: " + result );
+		org.lwjgl.vulkan.VK10.vkFreeCommandBuffers( device.getLogicalDevice( ), commandPool, commandBuffer );
 	}
 
 	private void transitionImage( MemoryStack stack, VkCommandBuffer commandBuffer, long image, int oldLayout, int newLayout )
@@ -427,6 +449,7 @@ public class LwjglVulkanTextureCache implements AutoCloseable
 
 			VkDescriptorPoolCreateInfo createInfo = VkDescriptorPoolCreateInfo.calloc( stack )
 				.sType( VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO )
+				.flags( org.lwjgl.vulkan.VK10.VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT )
 				.pPoolSizes( poolSizes )
 				.maxSets( 1024 );
 

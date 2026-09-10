@@ -18,6 +18,7 @@ public class LwjglVulkanExecutor
 {
 	public void start( )
 	{
+		System.setProperty( "org.lwjgl.system.memoryBackend", System.getProperty( "org.lwjgl.system.memoryBackend", "ffm" ) );
 		GLFWErrorCallback.createPrint( System.err ).set( );
 
 		if( !glfwInit( ) )
@@ -35,13 +36,13 @@ public class LwjglVulkanExecutor
 		int width = (int)controle.getScreen( ).getWidth( );
 		int height = (int)controle.getScreen( ).getHeight( );
 		VulkanGraphicsContext graphicsContext = new VulkanGraphicsContext( );
+		graphicsContext.setCanvasSize( width, height );
 		controle.getScreen( ).setGraphicsContext( graphicsContext );
 
 		try( LwjglVulkanInstance instance = new LwjglVulkanInstance( "enginefx" );
 			LwjglVulkanWindow window = new LwjglVulkanWindow( instance, width, height, "Enginefx Vulkan" );
 			LwjglVulkanDevice device = new LwjglVulkanDevice( instance, window.getSurface( ) );
-			LwjglVulkanSwapchain swapchain = new LwjglVulkanSwapchain( device, window.getSurface( ), window.getWidth( ), window.getHeight( ) );
-			LwjglVulkanFrameRenderer renderer = new LwjglVulkanFrameRenderer( device, swapchain ) )
+			br.com.engine.platform.lwjgl.LwjglVulkanRenderSession renderer = new br.com.engine.platform.lwjgl.LwjglVulkanRenderSession( device, window ) )
 		{
 			window.show( );
 			controle.setup( );

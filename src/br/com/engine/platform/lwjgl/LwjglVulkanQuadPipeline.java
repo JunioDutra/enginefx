@@ -97,19 +97,28 @@ public class LwjglVulkanQuadPipeline implements AutoCloseable
 		"layout(location = 1) in vec4 fragColor;\n" +
 		"layout(binding = 0) uniform sampler2D texSampler;\n" +
 		"layout(location = 0) out vec4 outColor;\n" +
+		"vec3 srgbToLinear(vec3 c) { return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), greaterThan(c, vec3(0.04045))); }\n" +
 		"void main() {\n" +
 		"    vec4 texColor = texture(texSampler, fragTexCoord);\n" +
 		"    outColor = texColor * fragColor;\n" +
+		"    if (SRGB_ATTACHMENT) outColor.rgb = srgbToLinear(texColor.rgb) * srgbToLinear(fragColor.rgb);\n" +
 		"}\n";
 
 	private final LwjglVulkanDevice device;
 	private final long descriptorSetLayout;
 	private final long pipelineLayout;
 	private final long pipeline;
+	private final boolean srgbAttachment;
 
 	public LwjglVulkanQuadPipeline( LwjglVulkanDevice device, long renderPass )
 	{
+		this( device, renderPass, true );
+	}
+
+	public LwjglVulkanQuadPipeline( LwjglVulkanDevice device, long renderPass, boolean srgbAttachment )
+	{
 		this.device = device;
+		this.srgbAttachment = srgbAttachment;
 		this.descriptorSetLayout = createDescriptorSetLayout( );
 		this.pipelineLayout = createPipelineLayout( );
 		this.pipeline = createPipeline( renderPass );
@@ -195,7 +204,7 @@ public class LwjglVulkanQuadPipeline implements AutoCloseable
 		try( MemoryStack stack = stackPush( ) )
 		{
 			ByteBuffer vertSpv = LwjglVulkanShaderCompiler.compileShader( VERTEX_SHADER, shaderc_glsl_vertex_shader, "quad.vert" );
-			ByteBuffer fragSpv = LwjglVulkanShaderCompiler.compileShader( FRAGMENT_SHADER, shaderc_glsl_fragment_shader, "quad.frag" );
+			ByteBuffer fragSpv = LwjglVulkanShaderCompiler.compileShader( FRAGMENT_SHADER.replace( "SRGB_ATTACHMENT", Boolean.toString( srgbAttachment ) ), shaderc_glsl_fragment_shader, "quad.frag" );
 
 			long vertModule = createShaderModule( stack, vertSpv );
 			long fragModule = createShaderModule( stack, fragSpv );
@@ -278,7 +287,7 @@ public class LwjglVulkanQuadPipeline implements AutoCloseable
 				.srcColorBlendFactor( VK_BLEND_FACTOR_SRC_ALPHA )
 				.dstColorBlendFactor( VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA )
 				.colorBlendOp( VK_BLEND_OP_ADD )
-				.srcAlphaBlendFactor( VK_BLEND_FACTOR_SRC_ALPHA )
+				.srcAlphaBlendFactor( org.lwjgl.vulkan.VK10.VK_BLEND_FACTOR_ONE )
 				.dstAlphaBlendFactor( VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA )
 				.alphaBlendOp( VK_BLEND_OP_ADD );
 

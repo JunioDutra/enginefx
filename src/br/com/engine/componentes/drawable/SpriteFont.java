@@ -32,6 +32,7 @@ public class SpriteFont extends SimpleComponent
 		this( );
 		
 		this.fontSize = fontSize;
+		loadFont( );
 	}
 	
 	public SpriteFont( String name )
@@ -39,6 +40,7 @@ public class SpriteFont extends SimpleComponent
 		this( );
 		
 		this.fontName = name;
+		loadFont( );
 	}
 	
 	public SpriteFont( String name, int fontSize )

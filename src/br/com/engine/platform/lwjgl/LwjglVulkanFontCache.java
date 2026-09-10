@@ -17,7 +17,10 @@ import br.com.engine.graphics.Image;
 
 public class LwjglVulkanFontCache implements AutoCloseable
 {
-	private final Map<Font, VulkanFont> fonts = new IdentityHashMap<>( );
+	static final int FIRST_CHAR = 32;
+	static final int CHAR_COUNT = 224;
+	private record FontKey( String source, float size ) { }
+	private final Map<FontKey, VulkanFont> fonts = new java.util.HashMap<>( );
 
 	public static class VulkanFont
 	{
@@ -41,7 +44,8 @@ public class LwjglVulkanFontCache implements AutoCloseable
 
 	public VulkanFont get( Font font )
 	{
-		return fonts.computeIfAbsent( font, this::createFont );
+		String source = font.getSourceFile( ) == null ? "Arial" : font.getSourceFile( ).getAbsolutePath( );
+		return fonts.computeIfAbsent( new FontKey( source, font.toAwtFont( ).getSize2D( ) ), ignored -> createFont( font ) );
 	}
 
 	private VulkanFont createFont( Font font )
@@ -64,7 +68,7 @@ public class LwjglVulkanFontCache implements AutoCloseable
 			ttfBuffer.put( bytes );
 			ttfBuffer.flip( );
 
-			float pixelHeight = font.toAwtFont().getSize() * 1.5f;
+			float pixelHeight = font.toAwtFont( ).getSize2D( );
 
 			STBTTFontinfo fontInfo = STBTTFontinfo.create( );
 			if( !STBTruetype.stbtt_InitFont( fontInfo, ttfBuffer ) )
@@ -79,15 +83,16 @@ public class LwjglVulkanFontCache implements AutoCloseable
 			float ascent = ascentI[0] * scale;
 			float descent = descentI[0] * scale;
 
-			int atlasWidth = 512;
-			int atlasHeight = 512;
+			int atlasWidth = 1024;
+			int atlasHeight = 1024;
 			ByteBuffer bitmapBuffer = BufferUtils.createByteBuffer( atlasWidth * atlasHeight );
-			STBTTBakedChar.Buffer charData = STBTTBakedChar.malloc( 96 );
+			STBTTBakedChar.Buffer charData = STBTTBakedChar.malloc( CHAR_COUNT );
 
-			int result = STBTruetype.stbtt_BakeFontBitmap( ttfBuffer, pixelHeight, bitmapBuffer, atlasWidth, atlasHeight, 32, charData );
+			int result = STBTruetype.stbtt_BakeFontBitmap( ttfBuffer, pixelHeight, bitmapBuffer, atlasWidth, atlasHeight, FIRST_CHAR, charData );
 
 			if( result <= 0 )
 			{
+				charData.free( );
 				throw new RuntimeException( "Failed to bake font bitmap" );
 			}
 

@@ -108,8 +108,11 @@ public class LwjglVulkanFrameRenderer implements AutoCloseable
 	private final LwjglVulkanFontCache fontCache;
 	private final LwjglVulkanDynamicVertexBuffer vertexBuffer;
 	private final long imageAvailableSemaphore;
-	private final long renderFinishedSemaphore;
+	private final long[] renderFinishedSemaphores;
 	private final long inFlightFence;
+	private boolean recreationRequired;
+
+	public boolean isRecreationRequired( ) { return recreationRequired; }
 	public LwjglVulkanFrameRenderer( LwjglVulkanDevice device, LwjglVulkanSwapchain swapchain )
 	{
 		this.device = device;
@@ -119,7 +122,8 @@ public class LwjglVulkanFrameRenderer implements AutoCloseable
 		commandPool = createCommandPool( );
 		commandBuffers = createCommandBuffers( );
 		imageStagingCache = new LwjglVulkanImageStagingCache( device );
-		quadPipeline = new LwjglVulkanQuadPipeline( device, renderPass );
+		quadPipeline = new LwjglVulkanQuadPipeline( device, renderPass,
+			swapchain.getImageFormat( ) == org.lwjgl.vulkan.VK10.VK_FORMAT_B8G8R8A8_SRGB || swapchain.getImageFormat( ) == org.lwjgl.vulkan.VK10.VK_FORMAT_R8G8B8A8_SRGB );
 		textureCache = new LwjglVulkanTextureCache( device, imageStagingCache, quadPipeline.getDescriptorSetLayout( ) );
 		fontCache = new LwjglVulkanFontCache( );
                 java.awt.image.BufferedImage b = new java.awt.image.BufferedImage( 1, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB );
@@ -127,7 +131,8 @@ public class LwjglVulkanFrameRenderer implements AutoCloseable
                 whiteImage = new br.com.engine.graphics.Image( b );
 		vertexBuffer = new LwjglVulkanDynamicVertexBuffer( device, 65536 * 6 * 8 * 4 ); // 64k quads, 6 verts, 8 floats, 4 bytes
 		imageAvailableSemaphore = createSemaphore( );
-		renderFinishedSemaphore = createSemaphore( );
+		renderFinishedSemaphores = new long[swapchain.getImageCount( )];
+		for( int i = 0; i < renderFinishedSemaphores.length; i++ ) renderFinishedSemaphores[i] = createSemaphore( );
 		inFlightFence = createFence( );
 	}
 
@@ -140,25 +145,28 @@ public class LwjglVulkanFrameRenderer implements AutoCloseable
 	{
 		try( MemoryStack stack = stackPush( ) )
 		{
-			vkWaitForFences( device.getLogicalDevice( ), stack.longs( inFlightFence ), true, Long.MAX_VALUE );
-			vkResetFences( device.getLogicalDevice( ), stack.longs( inFlightFence ) );
+			checkResult( vkWaitForFences( device.getLogicalDevice( ), stack.longs( inFlightFence ), true, Long.MAX_VALUE ), "wait for frame fence" );
 
 			IntBuffer imageIndex = stack.ints( 0 );
 			int result = vkAcquireNextImageKHR( device.getLogicalDevice( ), swapchain.getHandle( ), Long.MAX_VALUE, imageAvailableSemaphore, 0L, imageIndex );
 
-			if( result != VK_SUCCESS )
+			if( result == org.lwjgl.vulkan.KHRSwapchain.VK_ERROR_OUT_OF_DATE_KHR )
+			{
+				recreationRequired = true;
+				return; // Fence stays signaled: no submission will follow.
+			}
+			boolean suboptimal = result == org.lwjgl.vulkan.KHRSwapchain.VK_SUBOPTIMAL_KHR;
+			if( result != VK_SUCCESS && !suboptimal )
 			{
 				throw new IllegalStateException( "Failed to acquire Vulkan swapchain image: " + result );
 			}
 
 			recordCommandBuffer( stack, imageIndex.get( 0 ), graphicsContext );
+			// A submit fence does not guarantee completion of presentation.
+			long renderFinishedSemaphore = renderFinishedSemaphores[imageIndex.get( 0 )];
+			checkResult( vkResetFences( device.getLogicalDevice( ), stack.longs( inFlightFence ) ), "reset frame fence" );
 
-			VkSubmitInfo submitInfo = VkSubmitInfo.calloc( stack )
-				.sType( org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_SUBMIT_INFO )
-				.pWaitSemaphores( stack.longs( imageAvailableSemaphore ) )
-				.pWaitDstStageMask( stack.ints( VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT ) )
-				.pCommandBuffers( stack.pointers( commandBuffers[imageIndex.get( 0 )] ) )
-				.pSignalSemaphores( stack.longs( renderFinishedSemaphore ) );
+			VkSubmitInfo submitInfo = createSubmitInfo( stack, commandBuffers[imageIndex.get( 0 )].address( ), imageAvailableSemaphore, renderFinishedSemaphore );
 
 			result = vkQueueSubmit( device.getGraphicsQueue( ), submitInfo, inFlightFence );
 
@@ -176,10 +184,15 @@ public class LwjglVulkanFrameRenderer implements AutoCloseable
 
 			result = vkQueuePresentKHR( device.getPresentQueue( ), presentInfo );
 
-			if( result != VK_SUCCESS )
+			if( result == org.lwjgl.vulkan.KHRSwapchain.VK_ERROR_OUT_OF_DATE_KHR || result == org.lwjgl.vulkan.KHRSwapchain.VK_SUBOPTIMAL_KHR )
+			{
+				recreationRequired = true;
+			}
+			else if( result != VK_SUCCESS )
 			{
 				throw new IllegalStateException( "Failed to present Vulkan swapchain image: " + result );
 			}
+			recreationRequired |= suboptimal;
 		}
 	}
 
@@ -188,7 +201,7 @@ public class LwjglVulkanFrameRenderer implements AutoCloseable
 	{
 		vkDeviceWaitIdle( device.getLogicalDevice( ) );
 		vkDestroyFence( device.getLogicalDevice( ), inFlightFence, null );
-		vkDestroySemaphore( device.getLogicalDevice( ), renderFinishedSemaphore, null );
+		for( long semaphore : renderFinishedSemaphores ) vkDestroySemaphore( device.getLogicalDevice( ), semaphore, null );
 		vkDestroySemaphore( device.getLogicalDevice( ), imageAvailableSemaphore, null );
 		fontCache.close( );
 		textureCache.close( );
@@ -345,12 +358,22 @@ public class LwjglVulkanFrameRenderer implements AutoCloseable
 
 	    private void recordCommandBuffer( MemoryStack stack, int imageIndex, VulkanGraphicsContext graphicsContext )
     {
-        vkResetCommandBuffer( commandBuffers[imageIndex], 0 );
+        checkResult( vkResetCommandBuffer( commandBuffers[imageIndex], 0 ), "reset command buffer" );
+
+        var commands = graphicsContext == null ? java.util.List.<VulkanGraphicsContext.Command>of( ) : graphicsContext.getCommands( );
+        java.util.Set<br.com.engine.graphics.Image> requiredImages = java.util.Collections.newSetFromMap( new java.util.IdentityHashMap<>( ) );
+        for( var command : commands )
+        {
+            if( command instanceof VulkanGraphicsContext.DrawImageCommand c ) requiredImages.add( c.image( ) );
+            else if( command instanceof VulkanGraphicsContext.DrawTextCommand c ) requiredImages.add( fontCache.get( c.font( ) ).textureImage );
+            else requiredImages.add( whiteImage );
+        }
+        textureCache.retain( requiredImages );
 
         int totalQuads = 0;
         if( graphicsContext != null )
         {
-            for( VulkanGraphicsContext.Command commandRaw : graphicsContext.getCommands( ) )
+            for( VulkanGraphicsContext.Command commandRaw : commands )
             {
                 if( commandRaw instanceof VulkanGraphicsContext.DrawImageCommand ) totalQuads++;
                 else if( commandRaw instanceof VulkanGraphicsContext.FillRectCommand ) totalQuads++;
@@ -370,7 +393,7 @@ public class LwjglVulkanFrameRenderer implements AutoCloseable
             FloatBuffer yBuffer = stack.floats( 0.0f );
             STBTTAlignedQuad q = STBTTAlignedQuad.malloc( stack );
 
-            for( VulkanGraphicsContext.Command commandRaw : graphicsContext.getCommands( ) )
+            for( VulkanGraphicsContext.Command commandRaw : commands )
             {
                 if( commandRaw instanceof VulkanGraphicsContext.DrawImageCommand command )
                 {
@@ -425,12 +448,19 @@ public class LwjglVulkanFrameRenderer implements AutoCloseable
                     for( int i = 0; i < command.text( ).length( ); i++ )
                     {
                         char c = command.text( ).charAt( i );
-                        if( c < 32 || c >= 128 )
+                        if( c == '\n' )
+                        {
+                            xBuffer.put( 0, (float)command.x( ) );
+                            yBuffer.put( 0, yBuffer.get( 0 ) + vFont.ascent - vFont.descent );
+                            continue;
+                        }
+                        if( c < LwjglVulkanFontCache.FIRST_CHAR )
                         {
                             continue;
                         }
+                        if( c >= LwjglVulkanFontCache.FIRST_CHAR + LwjglVulkanFontCache.CHAR_COUNT ) c = '?';
 
-                        STBTruetype.stbtt_GetBakedQuad( vFont.charData, vFont.atlasWidth, vFont.atlasHeight, c - 32, xBuffer, yBuffer, q, true );
+                        STBTruetype.stbtt_GetBakedQuad( vFont.charData, vFont.atlasWidth, vFont.atlasHeight, c - LwjglVulkanFontCache.FIRST_CHAR, xBuffer, yBuffer, q, true );
 
                         if( batches.isEmpty() || batches.get( batches.size() - 1 ).texture != texture )
                         {
@@ -562,16 +592,17 @@ public class LwjglVulkanFrameRenderer implements AutoCloseable
             vkCmdBindVertexBuffers( commandBuffers[imageIndex], 0, pBuffers, pOffsets );
 
             FloatBuffer pushConstants = stack.floats(
-                    2.0f / swapchain.getWidth( ), 0.0f, 0.0f, 0.0f,
-                    0.0f, 2.0f / swapchain.getHeight( ), 0.0f, 0.0f,
+                    2.0f / (graphicsContext.getCanvasWidth( ) > 0 ? graphicsContext.getCanvasWidth( ) : swapchain.getWidth( )), 0.0f, 0.0f, 0.0f,
+                    0.0f, 2.0f / (graphicsContext.getCanvasHeight( ) > 0 ? graphicsContext.getCanvasHeight( ) : swapchain.getHeight( )), 0.0f, 0.0f,
                     0.0f, 0.0f, -1.0f, 0.0f,
                     -1.0f, -1.0f, 0.0f, 1.0f
             );
             vkCmdPushConstants( commandBuffers[imageIndex], quadPipeline.getPipelineLayout( ), VK_SHADER_STAGE_VERTEX_BIT, 0, pushConstants );
 
+            LongBuffer pDescriptorSets = stack.mallocLong( 1 );
             for( DrawBatch batch : batches )
             {
-                LongBuffer pDescriptorSets = stack.longs( batch.texture.descriptorSet( ) );
+                pDescriptorSets.put( 0, batch.texture.descriptorSet( ) );
                 vkCmdBindDescriptorSets( commandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, quadPipeline.getPipelineLayout( ), 0, pDescriptorSets, null );
 
                 vkCmdDraw( commandBuffers[imageIndex], batch.vertexCount, 1, batch.vertexOffset, 0 );
@@ -620,6 +651,22 @@ public class LwjglVulkanFrameRenderer implements AutoCloseable
 
 			return pointer.get( 0 );
 		}
+	}
+
+	static VkSubmitInfo createSubmitInfo( MemoryStack stack, long commandBuffer, long acquired, long finished )
+	{
+		return VkSubmitInfo.calloc( stack ).sType$Default( )
+			// LWJGL cannot infer this count from the two associated arrays.
+			.waitSemaphoreCount( 1 )
+			.pWaitSemaphores( stack.longs( acquired ) )
+			.pWaitDstStageMask( stack.ints( VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT ) )
+			.pCommandBuffers( stack.pointers( commandBuffer ) )
+			.pSignalSemaphores( stack.longs( finished ) );
+	}
+
+	private static void checkResult( int result, String operation )
+	{
+		if( result != VK_SUCCESS ) throw new IllegalStateException( "Failed to " + operation + ": " + result );
 	}
 
 	private long createFence( )

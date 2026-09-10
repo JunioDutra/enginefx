@@ -53,12 +53,12 @@ public class LwjglVulkanSwapchain implements AutoCloseable
 		try( MemoryStack stack = stackPush( ) )
 		{
 			SwapchainSupportDetails support = querySwapchainSupport( stack, device, surface );
-			VkSurfaceFormatKHR surfaceFormat = chooseSurfaceFormat( support.formats );
+			SurfaceFormat surfaceFormat = chooseSurfaceFormat( support.formats );
 			int presentMode = choosePresentMode( support.presentModes );
 			VkExtent2D extent = chooseExtent( stack, support.capabilities, requestedWidth, requestedHeight );
 			int imageCount = chooseImageCount( support.capabilities );
 
-			handle = createSwapchain( stack, surface, surfaceFormat, presentMode, extent, imageCount );
+			handle = createSwapchain( stack, surface, surfaceFormat, presentMode, extent, imageCount, support.capabilities );
 			imageFormat = surfaceFormat.format( );
 			width = extent.width( );
 			height = extent.height( );
@@ -158,19 +158,23 @@ public class LwjglVulkanSwapchain implements AutoCloseable
 		return new SwapchainSupportDetails( capabilities, formats, presentModes );
 	}
 
-	private VkSurfaceFormatKHR chooseSurfaceFormat( VkSurfaceFormatKHR.Buffer formats )
+	private record SurfaceFormat( int format, int colorSpace ) { }
+
+	private SurfaceFormat chooseSurfaceFormat( VkSurfaceFormatKHR.Buffer formats )
 	{
+		if( formats.remaining( ) == 1 && formats.get( 0 ).format( ) == org.lwjgl.vulkan.VK10.VK_FORMAT_UNDEFINED )
+			return new SurfaceFormat( VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR );
 		for( int index = 0; index < formats.capacity( ); index++ )
 		{
 			VkSurfaceFormatKHR format = formats.get( index );
 
 			if( format.format( ) == VK_FORMAT_B8G8R8A8_SRGB && format.colorSpace( ) == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR )
 			{
-				return format;
+				return new SurfaceFormat( format.format( ), format.colorSpace( ) );
 			}
 		}
 
-		return formats.get( 0 );
+		return new SurfaceFormat( formats.get( 0 ).format( ), formats.get( 0 ).colorSpace( ) );
 	}
 
 	private int choosePresentMode( IntBuffer presentModes )
@@ -211,7 +215,7 @@ public class LwjglVulkanSwapchain implements AutoCloseable
 		return imageCount;
 	}
 
-	private long createSwapchain( MemoryStack stack, long surface, VkSurfaceFormatKHR surfaceFormat, int presentMode, VkExtent2D extent, int imageCount )
+	private long createSwapchain( MemoryStack stack, long surface, SurfaceFormat surfaceFormat, int presentMode, VkExtent2D extent, int imageCount, VkSurfaceCapabilitiesKHR capabilities )
 	{
 		QueueFamilyIndices indices = device.getQueueFamilyIndices( );
 		IntBuffer queueFamilyIndices = stack.ints( indices.graphicsFamily( ), indices.presentFamily( ) );
@@ -224,9 +228,9 @@ public class LwjglVulkanSwapchain implements AutoCloseable
 			.imageColorSpace( surfaceFormat.colorSpace( ) )
 			.imageExtent( extent )
 			.imageArrayLayers( 1 )
-			.imageUsage( VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT )
-			.preTransform( queryCurrentTransform( surface ) )
-			.compositeAlpha( org.lwjgl.vulkan.KHRSurface.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR )
+			.imageUsage( VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT )
+			.preTransform( capabilities.currentTransform( ) )
+			.compositeAlpha( Integer.lowestOneBit( capabilities.supportedCompositeAlpha( ) ) )
 			.presentMode( presentMode )
 			.clipped( true )
 			.oldSwapchain( 0L );

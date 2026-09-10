@@ -25,6 +25,18 @@ public class VulkanGraphicsContext implements EngineGraphicsContext
     private VPos baseline = VPos.BASELINE;
     private double translateX;
     private double translateY;
+    private int canvasWidth;
+    private int canvasHeight;
+
+    public void setCanvasSize( int width, int height )
+    {
+        if( width <= 0 || height <= 0 ) throw new IllegalArgumentException( "Canvas size must be positive" );
+        canvasWidth = width;
+        canvasHeight = height;
+    }
+
+    public int getCanvasWidth( ) { return canvasWidth; }
+    public int getCanvasHeight( ) { return canvasHeight; }
 
     public void beginFrame( )
     {

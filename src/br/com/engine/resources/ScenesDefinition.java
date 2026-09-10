@@ -33,7 +33,7 @@ public class ScenesDefinition
 		    }
 		    else
 		    {
-		        return (Scene)Class.forName( getScene( ) ).newInstance( );
+		        return Class.forName( getScene( ) ).asSubclass( Scene.class ).getDeclaredConstructor( ).newInstance( );
 		    }
 		} 
 		catch( InstantiationException | IllegalAccessException | 
@@ -41,10 +41,9 @@ public class ScenesDefinition
 				NoSuchMethodException | InvocationTargetException | 
 				SecurityException e )
 		{
-			e.printStackTrace( );
+			throw new IllegalStateException( "Cannot create scene: " + scene, e );
 		}
 				
-		return null;
 	}
 
 	public String getScene( )

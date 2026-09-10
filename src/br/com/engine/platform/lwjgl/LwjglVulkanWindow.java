@@ -89,6 +89,7 @@ public class LwjglVulkanWindow implements AutoCloseable
 	public void close( )
 	{
 		vkDestroySurfaceKHR( instance.getHandle( ), surface, null );
+		org.lwjgl.glfw.Callbacks.glfwFreeCallbacks( handle );
 		glfwDestroyWindow( handle );
 	}
 
@@ -150,7 +151,14 @@ public class LwjglVulkanWindow implements AutoCloseable
 		{
 			if( action == GLFW_PRESS )
 			{
-				Mouse.infInstace( ).click( mouseX, mouseY );
+				try( MemoryStack stack = stackPush( ) )
+				{
+					var sizeX = stack.ints( 0 );
+					var sizeY = stack.ints( 0 );
+					org.lwjgl.glfw.GLFW.glfwGetWindowSize( handle, sizeX, sizeY );
+					if( sizeX.get( 0 ) > 0 && sizeY.get( 0 ) > 0 )
+						Mouse.infInstace( ).click( mouseX * width / sizeX.get( 0 ), mouseY * height / sizeY.get( 0 ) );
+				}
 			}
 		} );
 	}

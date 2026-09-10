@@ -88,11 +88,10 @@ public class LwjglVulkanDynamicVertexBuffer implements AutoCloseable
 	{
 		int capacity = (int)(size / 4);
 
-		if( floatCount > capacity )
+		// Draw counts must always match the uploaded range. Never truncate a frame.
+		if( floatCount < 0 || floatCount > data.length || floatCount > capacity )
 		{
-			System.err.println( "LwjglVulkanDynamicVertexBuffer: vertex data (" + floatCount
-				+ " floats) exceeds buffer capacity (" + capacity + " floats); truncating this frame." );
-			floatCount = capacity;
+			throw new IllegalArgumentException( "Vertex data exceeds source or GPU buffer capacity: " + floatCount );
 		}
 
 		try( MemoryStack stack = stackPush( ) )

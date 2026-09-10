@@ -148,6 +148,7 @@ public class ControleBase implements LoopSteps
 
     public void nextScene( int nScene )
     {
+        if( nScene < 0 || nScene >= scenes.size( ) ) throw new IllegalArgumentException( "Invalid scene index: " + nScene );
         nLastScene = nNextScene;
         bMudaScene = true;
         nNextScene = nScene;
@@ -168,17 +169,19 @@ public class ControleBase implements LoopSteps
 
     private void changeScene( )
     {
-        if( this.scenes.size() >= nNextScene )
+        if( nNextScene >= 0 && nNextScene < this.scenes.size( ) )
         {
             gameLogic.onCallChange( );
             renderLoadingScreen( );
 
             getScreen( ).getGraphicsContext( ).resetTransform( );
+			br.com.engine.input.Mouse.infInstace( ).clear( );
 
             Scene scene = sceneDefinitions.get( nNextScene ).getNewScene( );
             scenes.set( nNextScene, scene );
 
-            Runnable task = () -> { try { scene.setup(); gameLogic = scene; } catch (Exception e) { e.printStackTrace(); } }; task.run();
+            scene.setup( );
+            gameLogic = scene;
 
             bMudaScene = false;
         }

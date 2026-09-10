@@ -48,6 +48,17 @@ public class LwjglVulkanImageStagingCache implements AutoCloseable
 		return stagedImages.computeIfAbsent( image, this::createStagedImage );
 	}
 
+	/** Only call after the upload has completed on the GPU. */
+	public void release( Image image )
+	{
+		StagedImage staged = stagedImages.remove( image );
+		if( staged != null )
+		{
+			vkDestroyBuffer( device.getLogicalDevice( ), staged.buffer( ), null );
+			vkFreeMemory( device.getLogicalDevice( ), staged.memory( ), null );
+		}
+	}
+
 	@Override
 	public void close( )
 	{

@@ -29,7 +29,8 @@ public class TmxMap extends SimpleComponent
 
 	private Map map;
 
-	List<java.util.Map<Image, Vector2>> itens = new ArrayList<java.util.Map<Image,Vector2>>();
+	private record TileDraw( Image image, Vector2 position ) { }
+	private final List<TileDraw> itens = new ArrayList<>( );
 	
 	public TmxMap( String tmxMapFile )
 	{
@@ -42,6 +43,8 @@ public class TmxMap extends SimpleComponent
 		try 
 		{
 			map = ResourceManager.loadResource( this.tmxMapFile, ResourceManager.MAP, Map.class );
+			itens.clear( );
+			java.util.Map<BufferedImage, Image> tileImages = new java.util.IdentityHashMap<>( );
 			
 			for( int l = 0; l < map.getLayerCount( ); l++ )
 			{
@@ -67,14 +70,13 @@ public class TmxMap extends SimpleComponent
 							((CustomCubeColisor)colisor).setTag( mapObject.getName( ) );
 						}
 						
-						getParent( ).addComponente( colisor );
+						if( colisor != null ) getParent( ).addComponente( colisor );
 					});
 				}
-				else
+				else if( map.getLayer( l ) instanceof TileLayer )
 				{
 					TileLayer layer = ((TileLayer)map.getLayer( l ));
 					
-					java.util.Map<Image, Vector2> images = new HashMap<Image, Vector2>( );
 					
 					for (int y = 0; y < layer.getHeight(); y++) 
 					{
@@ -88,17 +90,17 @@ public class TmxMap extends SimpleComponent
 							}
 							
 							BufferedImage image = (BufferedImage)tile.getImage( );
-							images.put( new Image( image ), new Vector2( x*image.getWidth( ), y*image.getHeight() ) );
+							if( image != null ) itens.add( new TileDraw( tileImages.computeIfAbsent( image, Image::new ),
+								new Vector2( x * map.getTileWidth( ), y * map.getTileHeight( ) ) ) );
 						}	
 					}
 					
-					itens.add(images);
 				}
 			}
 		} 
 		catch( Exception e )
 		{
-			e.printStackTrace( );
+			throw new IllegalStateException( "Cannot load TMX map: " + tmxMapFile, e );
 		}
 	}
 	
@@ -109,9 +111,7 @@ public class TmxMap extends SimpleComponent
 
 		Vector2 position = getParent( ).getPosition();
 		
-		itens.forEach( item -> item.forEach( (key, value) -> g.drawImage( key, 
-				                                                          position.getX( ) + value.getX( ), 
-				 													      position.getY( ) + value.getY( ) ) ) );
+		itens.forEach( tile -> g.drawImage( tile.image( ), position.getX( ) + tile.position( ).getX( ), position.getY( ) + tile.position( ).getY( ) ) );
 	}
 
 	@Override

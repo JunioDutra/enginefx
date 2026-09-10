@@ -35,7 +35,16 @@ import br.com.engine.graphics.Image;
 
 public class ContentLoader 
 {
-	private static final String[] RESOURCE_ROOTS = { "./res", "./src/main/resources", "./target/classes" };
+	private static final List<String> RESOURCE_ROOTS = resourceRoots( );
+	private static final Map<Path, Image> IMAGES = new java.util.concurrent.ConcurrentHashMap<>( );
+
+	private static List<String> resourceRoots( )
+	{
+		List<String> roots = new ArrayList<>( List.of( "./res", "./src/main/resources", "./target/classes/res" ) );
+		String packaged = PackagedResources.root( );
+		if( packaged != null ) roots.add( packaged );
+		return roots;
+	}
 	
 	public static Object loadContent( String name, Map<String, Object> data )
 	{
@@ -83,8 +92,10 @@ public class ContentLoader
 				continue;
 			}
 
-			Files.find( srcPath, Integer.MAX_VALUE, (path, basicFileAttributes) -> !Files.isDirectory( path ) )
-				.forEach( path -> filesPaths.putIfAbsent( normalize( srcPath.relativize( path ).toString( ) ), path ) );
+			try( var paths = Files.find( srcPath, Integer.MAX_VALUE, (path, attributes) -> attributes.isRegularFile( ) ) )
+			{
+				paths.forEach( path -> filesPaths.putIfAbsent( normalize( srcPath.relativize( path ).toString( ) ), path ) );
+			}
 		}
 
 		return new ArrayList<Path>( filesPaths.values( ) );
@@ -185,7 +196,14 @@ public class ContentLoader
 	{
 		try
 		{
-			return new Image( ImageIO.read( path.toFile( ) ) );
+			Path key = path.toAbsolutePath( ).normalize( );
+			Image cached = IMAGES.get( key );
+			if( cached != null ) return cached;
+			var pixels = ImageIO.read( path.toFile( ) );
+			if( pixels == null ) throw new IOException( "Unsupported or invalid image: " + path );
+			Image image = new Image( pixels );
+			Image previous = IMAGES.putIfAbsent( key, image );
+			return previous == null ? image : previous;
 		}
 		catch( IOException exception )
 		{
@@ -197,7 +215,7 @@ public class ContentLoader
 	{
 		Properties p = new Properties( );
 		
-		p.load( new FileInputStream( path.toFile( ) ) );
+		try( var input = Files.newInputStream( path ) ) { p.load( input ); }
 		
 		return p;
 	}
@@ -207,10 +225,11 @@ public class ContentLoader
 		return new AudioClip( path );
 	}
 	
-	private static Object loadScript( Path path, Map<String, Object> data ) throws FileNotFoundException, ScriptException
+    private static Object loadScript( Path path, Map<String, Object> data ) throws IOException, ScriptException
     {
         ScriptEngineManager scriptEngineManager = new ScriptEngineManager( );
         ScriptEngine nashorn = scriptEngineManager.getEngineByName( "nashorn" );
+        if( nashorn == null ) throw new IllegalStateException( "Nashorn provider missing: include nashorn-core and preserve META-INF/services" );
         
         if( data != null )
         {
@@ -220,7 +239,7 @@ public class ContentLoader
             } );
         }
         
-        nashorn.eval( new FileReader( path.toFile( ) ) );
+        try( var reader = Files.newBufferedReader( path ) ) { nashorn.eval( reader ); }
         
         return nashorn; 
     }
@@ -238,17 +257,15 @@ public class ContentLoader
 		}
 	}
 
-	private static Object loadJson( Path path ) throws JsonSyntaxException, JsonIOException, FileNotFoundException
+	private static Object loadJson( Path path ) throws JsonSyntaxException, JsonIOException, IOException
 	{
 		Gson gson = new GsonBuilder( ).create( );
-		JsonObject jsonObject = gson.fromJson( new FileReader( path.toFile( ) ), JsonObject.class );
-		
-		return jsonObject;
+		try( var reader = Files.newBufferedReader( path ) ) { return gson.fromJson( reader, JsonObject.class ); }
 	}
 
 	private static org.mapeditor.core.Map loadMap( Path path ) throws FileNotFoundException, Exception
 	{
-		return new TMXMapReader( ).readMap( new FileInputStream( path.toFile( ) ) );
+		return new TMXMapReader( ).readMap( path.toAbsolutePath( ).toString( ) );
 	}
 	
 	public static void main(String[] args) throws Exception {
