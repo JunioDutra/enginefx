@@ -15,6 +15,8 @@ Fornecer uma engine 2D desktop em Java que permita ao jogo definir configuraçã
 | Recursos em IDE e JAR | Implementado e exercitado | Resolução exata, cache compartilhado, fontes/áudio/TMX/scripts pelo mesmo resolvedor |
 | Lifecycle e input com dono | Implementado e testado | Setup, mutações diferidas, descarte terminal e liberação de listeners |
 | Contratos 2.1 para consumidores | Implementado e testado | Título/fallback, saída normal, descarte único sob exceção e bordas pendentes de teclado; 34 testes no JDK 25.0.2 e smoke integrado FIFO |
+| Gate Lua 5.4 / Native Image | Implementado e testado isoladamente | 9 testes JVM, EXE GraalVM 25.3.4.1 com 200 ciclos e 6 rejeições nativas; DLL embutida e `.lua` externo pós-build. [Review do gate](docs/reviews/2026-09-12-lua-native-gate.md); ainda não é API da engine |
+| Prova nativa de plataforma | Parcial | Harness JNI cobre janela GLFW, consulta do loader Vulkan, STB e callback sintético nativo; dispositivo/swapchain, upload de textura, desenho e áudio nativo permanecem pendentes. Diagnósticos no review do gate |
 | Relógio e física fixa | Parcial | Passo 60 Hz e testes do núcleo; interpolação visual e solver físico completo pendentes |
 | Correções de submissão/apresentação | Parcial | Fence/semafóros e resize exercitados em FIFO; retirement formal de swapchain pendente |
 | Crescimento de buffer | Implementado e exercitado | Duplica capacidade com limite e cleanup de falha |

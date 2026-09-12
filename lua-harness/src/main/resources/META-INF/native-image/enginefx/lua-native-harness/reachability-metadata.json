@@ -1,0 +1,105 @@
+{
+  "reflection": [
+    {
+      "type": "java.lang.Boolean",
+      "jniAccessible": true,
+      "methods": [
+        { "name": "<init>", "parameterTypes": [ "boolean" ] },
+        { "name": "booleanValue", "parameterTypes": [] },
+        { "name": "getBoolean", "parameterTypes": [ "java.lang.String" ] }
+      ]
+    },
+    {
+      "type": "java.lang.Byte",
+      "jniAccessible": true,
+      "methods": [ { "name": "<init>", "parameterTypes": [ "byte" ] } ]
+    },
+    {
+      "type": "java.lang.Character",
+      "jniAccessible": true,
+      "methods": [
+        { "name": "<init>", "parameterTypes": [ "char" ] },
+        { "name": "charValue", "parameterTypes": [] }
+      ]
+    },
+    {
+      "type": "java.lang.Class",
+      "jniAccessible": true,
+      "methods": [ { "name": "forName", "parameterTypes": [ "java.lang.String" ] } ]
+    },
+    {
+      "type": "java.lang.Double",
+      "jniAccessible": true,
+      "methods": [ { "name": "<init>", "parameterTypes": [ "double" ] } ]
+    },
+    {
+      "type": "java.lang.Float",
+      "jniAccessible": true,
+      "methods": [ { "name": "<init>", "parameterTypes": [ "float" ] } ]
+    },
+    {
+      "type": "java.lang.Integer",
+      "jniAccessible": true,
+      "methods": [ { "name": "<init>", "parameterTypes": [ "int" ] } ]
+    },
+    {
+      "type": "java.lang.Long",
+      "jniAccessible": true,
+      "methods": [ { "name": "<init>", "parameterTypes": [ "long" ] } ]
+    },
+    {
+      "type": "java.lang.Number",
+      "jniAccessible": true,
+      "methods": [
+        { "name": "byteValue", "parameterTypes": [] },
+        { "name": "doubleValue", "parameterTypes": [] },
+        { "name": "floatValue", "parameterTypes": [] },
+        { "name": "intValue", "parameterTypes": [] },
+        { "name": "longValue", "parameterTypes": [] },
+        { "name": "shortValue", "parameterTypes": [] }
+      ]
+    },
+    {
+      "type": "java.lang.Short",
+      "jniAccessible": true,
+      "methods": [ { "name": "<init>", "parameterTypes": [ "short" ] } ]
+    },
+    {
+      "type": "java.lang.Throwable",
+      "jniAccessible": true,
+      "methods": [
+        { "name": "getMessage", "parameterTypes": [] },
+        { "name": "toString", "parameterTypes": [] }
+      ]
+    },
+    {
+      "type": "party.iroiro.luajava.JuaAPI",
+      "jniAccessible": true,
+      "methods": [
+        { "name": "allocateDirect", "parameterTypes": [ "int" ] },
+        { "name": "arrayIndex", "parameterTypes": [ "int", "java.lang.Object", "int" ] },
+        { "name": "arrayLength", "parameterTypes": [ "java.lang.Object" ] },
+        { "name": "arrayNew", "parameterTypes": [ "int", "java.lang.Object", "int" ] },
+        { "name": "arrayNewIndex", "parameterTypes": [ "int", "java.lang.Object", "int" ] },
+        { "name": "classIndex", "parameterTypes": [ "int", "java.lang.Class", "java.lang.String" ] },
+        { "name": "classInvoke", "parameterTypes": [ "int", "java.lang.Class", "java.lang.String", "int" ] },
+        { "name": "classInvoke", "parameterTypes": [ "int", "java.lang.Class", "java.lang.String", "java.lang.String", "int" ] },
+        { "name": "classNew", "parameterTypes": [ "int", "java.lang.Object", "int" ] },
+        { "name": "classNewIndex", "parameterTypes": [ "int", "java.lang.Class", "java.lang.String" ] },
+        { "name": "freeThreadId", "parameterTypes": [ "int" ] },
+        { "name": "javaImport", "parameterTypes": [ "int", "java.lang.String" ] },
+        { "name": "load", "parameterTypes": [ "int", "java.lang.String" ] },
+        { "name": "loadLib", "parameterTypes": [ "int", "java.lang.String", "java.lang.String" ] },
+        { "name": "loadModule", "parameterTypes": [ "int", "java.lang.String" ] },
+        { "name": "luaify", "parameterTypes": [ "int" ] },
+        { "name": "objectIndex", "parameterTypes": [ "int", "java.lang.Object", "java.lang.String" ] },
+        { "name": "objectInvoke", "parameterTypes": [ "int", "java.lang.Object", "java.lang.String", "int" ] },
+        { "name": "objectInvoke", "parameterTypes": [ "int", "java.lang.Object", "java.lang.String", "java.lang.String", "int" ] },
+        { "name": "objectNewIndex", "parameterTypes": [ "int", "java.lang.Object", "java.lang.String" ] },
+        { "name": "proxy", "parameterTypes": [ "int" ] },
+        { "name": "threadNewId", "parameterTypes": [ "int", "long" ] },
+        { "name": "unwrap", "parameterTypes": [ "int", "java.lang.Object" ] }
+      ]
+    }
+  ]
+}

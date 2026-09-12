@@ -41,6 +41,8 @@ Não há container de injeção, ECS de dados, barramento de eventos geral, serv
 
 Fontes de produção ficam em `src/br/com/engine`; testes, em `tests/br/com/engine`. O POM configura essa disposição explicitamente.
 
+O subprojeto `lua-harness/` não é parte do artefato `enginefx` nem do ciclo de cenas. Ele é a prova técnica versionada da Etapa 1A: LuaJava/Lua 5.4 no JVM e no Native Image, com DLL e metadados JNI explícitos. Seu hook e wrappers de chamadas protegidas propagam o limite de instruções; o script de verificação executa casos positivos e negativos em pasta isolada. A API Lua própria começa na Etapa 1B; o scripting Nashorn legado permanece na engine 2.1.
+
 ## Inicialização e cenas
 
 1. `Executor.loadGame` seleciona Vulkan e inicia `LwjglVulkanExecutor`.

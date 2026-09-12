@@ -1,0 +1,15 @@
+{
+  "resources": {
+    "includes": [
+      {
+        "pattern": "(^|.*/)lua5464\\.dll$"
+      },
+      {
+        "pattern": "^fixtures/(nested/pixel\\.png|fonts/test\\.ttf|audio/menu_roll\\.wav)$"
+      },
+      {
+        "pattern": "^windows/x64/org/lwjgl/(lwjgl\\.dll|glfw/glfw\\.dll|stb/lwjgl_stb\\.dll)$"
+      }
+    ]
+  }
+}

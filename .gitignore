@@ -1,5 +1,6 @@
 /bin/
 /.settings/
 /target/
+/lua-harness/target/
 .classpath
 .project

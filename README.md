@@ -10,6 +10,8 @@ Engine 2D desktop em Java, com cenas e componentes, renderização **GLFW + LWJG
 | [BluePrint.md](BluePrint.md) | Arquitetura implementada e pontos de extensão |
 | [PRD.md](PRD.md) | Andamento, critérios de aceite e próximos passos |
 | [Review 2.1](docs/reviews/2026-09-12-enginefx-2.1.md) | Contratos atuais, correções e validação no JDK 25 |
+| [Harness Lua/Native Image](lua-harness/README.md) | Gate técnico isolado da Etapa 1A e sua reprodução |
+| [Review do gate Lua](docs/reviews/2026-09-12-lua-native-gate.md) | Correções do terceiro bloco, testes nativos e limites |
 | [REVIEW.md](REVIEW.md) | Revisão histórica da migração Vulkan |
 | [VULKAN_MIGRATION_REVIEW.md](VULKAN_MIGRATION_REVIEW.md) | Auditoria original que orientou a migração |
 
@@ -78,3 +80,5 @@ java --enable-native-access=ALL-UNNAMED '-Denginefx.vulkan.validation=true' -jar
 `presentMode` aceita `auto` (MAILBOX se disponível, senão FIFO), `fifo` e `mailbox`. Uma escolha explícita sem suporte falha com diagnóstico. A validação exige a camada Khronos instalada. O launcher usa o backend de memória FFM por padrão e respeita `-Dorg.lwjgl.system.memoryBackend`.
 
 A migração ainda tem critérios de aceite pendentes. Consulte [PRD.md](PRD.md) antes de tratar um smoke aprovado como validação visual ou aprovação de driver.
+
+O gate Lua 5.4/Native Image foi validado em um subprojeto isolado, sem expor LuaJava ao contrato da engine nem alterar o runtime Nashorn atual. Consulte o [relatório da prova](lua-harness/REPORT_2026-09-12.md); `ScriptRuntime` e a migração de consumidores pertencem à próxima etapa.
