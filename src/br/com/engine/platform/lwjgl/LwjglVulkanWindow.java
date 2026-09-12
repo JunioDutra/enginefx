@@ -58,6 +58,13 @@ public class LwjglVulkanWindow implements AutoCloseable
 	public void pollEvents( )
 	{
 		glfwPollEvents( );
+		KeyBoard.infInstace().beginFrame();
+	}
+
+	/** Completes the logical frame after update and rendering. */
+	public void endFrame()
+	{
+		KeyBoard.infInstace().endFrame();
 	}
 
 	public boolean shouldClose( )
@@ -91,6 +98,7 @@ public class LwjglVulkanWindow implements AutoCloseable
 		vkDestroySurfaceKHR( instance.getHandle( ), surface, null );
 		org.lwjgl.glfw.Callbacks.glfwFreeCallbacks( handle );
 		glfwDestroyWindow( handle );
+		KeyBoard.infInstace().reset();
 	}
 
 	private long createWindow( int width, int height, String title )

@@ -44,6 +44,8 @@ public class ControleBase implements LoopSteps
 
     private final Configurations configurations;
     private final Font debugFont;
+    private boolean stopCompleted;
+    private boolean exitRequested;
 
     private ControleBase( )
     {
@@ -207,9 +209,31 @@ public class ControleBase implements LoopSteps
 
     public void stop( )
     {
-        running = false;
+        synchronized (this)
+        {
+            if (stopCompleted) return;
+            stopCompleted = true;
+            running = false;
+            exitRequested = true;
+        }
         try { if (gameLogic != null) gameLogic.dispose(); }
-        finally { scenes.clear(); br.com.engine.resources.ContentLoader.clearCaches(); }
+        finally
+        {
+            scenes.clear();
+            br.com.engine.resources.ContentLoader.clearCaches();
+        }
+    }
+
+    /** Requests a normal game-loop shutdown. Repeated requests are harmless. */
+    public synchronized void requestExit()
+    {
+        exitRequested = true;
+        running = false;
+    }
+
+    public synchronized boolean isExitRequested()
+    {
+        return exitRequested;
     }
 
     public EngineGraphicsContext getGraphics2d( )

@@ -7,6 +7,7 @@ public class Configurations {
 	private Boolean debugMode;
 	private Integer sizeW;
 	private Integer sizeH;
+	private String title;
 
 	public List<ScenesDefinition> getScenes() {
 		return scenes;
@@ -38,5 +39,17 @@ public class Configurations {
 
 	public void setSizeH(Integer sizeH) {
 		this.sizeH = sizeH;
+	}
+
+	/**
+	 * Returns the configured window title.  Older application files do not
+	 * contain this property, so the historical title remains the fallback.
+	 */
+	public String getTitle() {
+		return title == null || title.isBlank() ? "Enginefx Vulkan" : title;
+	}
+
+	public void setTitle(String title) {
+		this.title = title;
 	}
 }

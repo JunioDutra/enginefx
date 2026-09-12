@@ -5,6 +5,7 @@ import br.com.engine.componentes.builders.SpriteFontBuilder;
 import br.com.engine.componentes.drawable.SpriteFont;
 import br.com.engine.core.GameObject;
 import br.com.engine.core.Scene;
+import br.com.engine.resources.ResourceLoadException;
 
 
 
@@ -18,13 +19,23 @@ public class Loading extends Scene
 	{
 		super.setup( );
 
-		GameObject loading = new SpriteFontBuilder( )
-			.setFont( "fonts/font.ttf" )
-			.setText("Loading")
-			.setSize(50)
-			.centerX()
-			.centerY()
-			.build();
+		GameObject loading;
+		try
+		{
+			loading = new SpriteFontBuilder( )
+				.setFont( "fonts/font.ttf" )
+				.setText("Loading")
+				.setSize(50)
+				.centerX()
+				.centerY()
+				.build();
+		}
+		catch (ResourceLoadException missingFont)
+		{
+			// A game may intentionally ship its first scene without a font while
+			// content is still being bootstrapped. The loading scene is optional.
+			return;
+		}
 
 		loading.addComponente( ScriptBuilder.create( time ->
 		{
@@ -56,7 +67,11 @@ public class Loading extends Scene
 			loading.getComponent( SpriteFont.class ).setText( text );
 		} ) );
 
-		add( loading );
+		try { add( loading ); }
+		catch (ResourceLoadException missingFont)
+		{
+			// Keep bootstrapping games that do not ship a font yet.
+		}
 	}
 
 	@Override

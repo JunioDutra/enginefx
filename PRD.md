@@ -1,6 +1,6 @@
 # PRD — EngineFX
 
-Atualizado em 10/09/2026. Este documento acompanha o estado implementado e os próximos passos. A auditoria original está em [VULKAN_MIGRATION_REVIEW.md](VULKAN_MIGRATION_REVIEW.md); resultados de execução estão em [REVIEW.md](REVIEW.md).
+Atualizado em 12/09/2026. Este documento acompanha o estado implementado e os próximos passos. A auditoria original está em [VULKAN_MIGRATION_REVIEW.md](VULKAN_MIGRATION_REVIEW.md); resultados atuais estão no [review 2.1](docs/reviews/2026-09-12-enginefx-2.1.md) e o histórico em [REVIEW.md](REVIEW.md).
 
 ## Objetivo
 
@@ -14,6 +14,7 @@ Fornecer uma engine 2D desktop em Java que permita ao jogo definir configuraçã
 | Tipos gráficos próprios | Implementado | RGBA, Image, Font e IntPoint; fonte medida e rasterizada por STB |
 | Recursos em IDE e JAR | Implementado e exercitado | Resolução exata, cache compartilhado, fontes/áudio/TMX/scripts pelo mesmo resolvedor |
 | Lifecycle e input com dono | Implementado e testado | Setup, mutações diferidas, descarte terminal e liberação de listeners |
+| Contratos 2.1 para consumidores | Implementado e testado | Título/fallback, saída normal, descarte único sob exceção e bordas pendentes de teclado; 34 testes no JDK 25.0.2 e smoke integrado FIFO |
 | Relógio e física fixa | Parcial | Passo 60 Hz e testes do núcleo; interpolação visual e solver físico completo pendentes |
 | Correções de submissão/apresentação | Parcial | Fence/semafóros e resize exercitados em FIFO; retirement formal de swapchain pendente |
 | Crescimento de buffer | Implementado e exercitado | Duplica capacidade com limite e cleanup de falha |

@@ -1,6 +1,6 @@
 # BluePrint — EngineFX
 
-Atualizado em 10/09/2026. Descreve o código implementado; trabalho futuro está em [PRD.md](PRD.md).
+Atualizado em 12/09/2026. Descreve o código implementado; trabalho futuro está em [PRD.md](PRD.md).
 
 ## Arquitetura e dependências
 
@@ -52,9 +52,13 @@ Fontes de produção ficam em `src/br/com/engine`; testes, em `tests/br/com/engi
 
 Falhas de setup são propagadas e o estado parcialmente criado é descartado. A engine recria a instância ao revisitar uma cena; persistência entre visitas precisa de estado fora dela.
 
+Em 2.1, a janela recebe `Configurations.getTitle()`, com fallback para configurações antigas. `requestExit()` marca a saída normal do loop; `stop()` é terminal e idempotente, inclusive após exceção de descarte. O loading pode ficar vazio quando o carregamento de sua fonte falha. Os testes de shutdown contam descartes; não cobrem toda falha parcial de inicialização nativa.
+
 ## Tempo, componentes e colisões
 
 Cada iteração consulta eventos, executa lógica, coleta comandos e apresenta. `Time.update` limita o delta a 250 ms. Milissegundos legados preservam o resto de nanossegundos para não congelar temporizadores em FPS elevado.
+
+Callbacks de teclado atualizam estado contínuo e conjuntos de bordas pendentes. `LwjglVulkanWindow.pollEvents()` consulta GLFW e então publica essas bordas por `beginFrame()`. `endFrame()` limpa apenas as bordas publicadas, preservando callbacks recebidos depois da lógica durante esperas do renderer para a próxima iteração.
 
 Após `update`, o controlador acumula tempo para `fixedUpdate(1/60f)`, limitado a cinco passos por frame. Tempo excedente de física é descartado para evitar recuperação ilimitada. `Time.getInterpolationAlpha()` expõe a fração restante, mas os sprites ainda não interpolam posições.
 
@@ -102,6 +106,6 @@ TSX externo, flags de flip/rotação, grupos, image layers, offsets, opacidade p
 
 Para adicionar comportamento, derive `SimpleComponent`, use setup para obter dependências e fixedUpdate para física, e libere inscrições/recursos em dispose. Para um novo comando gráfico, altere o contrato, o registro e o renderer, preservando ordem e regras de sincronização.
 
-Testes locais cobrem lifecycle, tempo, input, recursos, scripts, áudio inválido, métricas STB, TMX, crescimento de capacidade, seleção de present mode, shader e estrutura de submissão. O harness do `dinofx` cobre o caminho GPU, empacotamento, troca de cenas, resize e crescimento nativo do buffer. Os limites e resultados da máquina estão em [REVIEW.md](REVIEW.md).
+Testes locais cobrem lifecycle, tempo, input, recursos, scripts, áudio inválido, métricas STB, TMX, crescimento de capacidade, seleção de present mode, shader e estrutura de submissão. O harness do `dinofx` cobre o caminho GPU, empacotamento, troca de cenas, resize e crescimento nativo do buffer. Os resultados atuais estão no [review 2.1](docs/reviews/2026-09-12-enginefx-2.1.md); [REVIEW.md](REVIEW.md) preserva a revisão histórica.
 
 Atualize este arquivo quando mudar o fluxo de cenas, as regras de recursos, o contrato gráfico ou ownership de memória. Critérios ainda não demonstrados permanecem no PRD.

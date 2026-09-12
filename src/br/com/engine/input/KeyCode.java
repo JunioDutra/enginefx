@@ -21,7 +21,18 @@ public enum KeyCode
     E( org.lwjgl.glfw.GLFW.GLFW_KEY_E ),
     Z( org.lwjgl.glfw.GLFW.GLFW_KEY_Z ),
     X( org.lwjgl.glfw.GLFW.GLFW_KEY_X ),
-    C( org.lwjgl.glfw.GLFW.GLFW_KEY_C );
+    C( org.lwjgl.glfw.GLFW.GLFW_KEY_C ),
+    I( org.lwjgl.glfw.GLFW.GLFW_KEY_I ),
+    NUM_0( org.lwjgl.glfw.GLFW.GLFW_KEY_0 ),
+    NUM_1( org.lwjgl.glfw.GLFW.GLFW_KEY_1 ),
+    NUM_2( org.lwjgl.glfw.GLFW.GLFW_KEY_2 ),
+    NUM_3( org.lwjgl.glfw.GLFW.GLFW_KEY_3 ),
+    NUM_4( org.lwjgl.glfw.GLFW.GLFW_KEY_4 ),
+    NUM_5( org.lwjgl.glfw.GLFW.GLFW_KEY_5 ),
+    NUM_6( org.lwjgl.glfw.GLFW.GLFW_KEY_6 ),
+    NUM_7( org.lwjgl.glfw.GLFW.GLFW_KEY_7 ),
+    NUM_8( org.lwjgl.glfw.GLFW.GLFW_KEY_8 ),
+    NUM_9( org.lwjgl.glfw.GLFW.GLFW_KEY_9 );
 
     private final int code;
 

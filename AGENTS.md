@@ -2,7 +2,7 @@
 
 ## Escopo e referências
 
-Este repositório contém a biblioteca `enginefx:enginefx:2.0.0`. O jogo consumidor está no checkout irmão `dinofx`. Leia [README.md](README.md), [BluePrint.md](BluePrint.md) e [PRD.md](PRD.md). [REVIEW.md](REVIEW.md) registra a validação mais recente; a auditoria original está em [VULKAN_MIGRATION_REVIEW.md](VULKAN_MIGRATION_REVIEW.md).
+Este repositório contém a biblioteca `enginefx:enginefx:2.1.0`. O jogo consumidor está no checkout irmão `dinofx`. Leia [README.md](README.md), [BluePrint.md](BluePrint.md) e [PRD.md](PRD.md). [REVIEW.md](REVIEW.md) registra a validação histórica; a auditoria original está em [VULKAN_MIGRATION_REVIEW.md](VULKAN_MIGRATION_REVIEW.md).
 
 ## Build e validação
 

@@ -23,19 +23,24 @@ public class LwjglVulkanExecutor
             graphics.setCanvasSize(width, height);
             control.getScreen().setGraphicsContext(graphics);
             try (var instance = new LwjglVulkanInstance("enginefx");
-                 var window = new LwjglVulkanWindow(instance, width, height, "Enginefx Vulkan");
+                 var window = new LwjglVulkanWindow(instance, width, height, control.getConfigurations().getTitle());
                  var device = new LwjglVulkanDevice(instance, window.getSurface());
                  var renderer = new LwjglVulkanRenderSession(device, window))
             {
                 window.show();
                 control.setup();
-                while (!window.shouldClose())
+                while (!window.shouldClose() && !control.isExitRequested())
                 {
-                    window.pollEvents();
-                    control.processLogics();
-                    graphics.beginFrame();
-                    control.renderGraphics();
-                    renderer.drawFrame(graphics);
+                    try
+                    {
+                        window.pollEvents();
+                        if (window.shouldClose() || control.isExitRequested()) break;
+                        control.processLogics();
+                        graphics.beginFrame();
+                        control.renderGraphics();
+                        renderer.drawFrame(graphics);
+                    }
+                    finally { window.endFrame(); }
                 }
             }
         }

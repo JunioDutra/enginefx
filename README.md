@@ -1,6 +1,6 @@
 # EngineFX
 
-Engine 2D desktop em Java, com cenas e componentes, renderização **GLFW + LWJGL Vulkan**, imagens RGBA, fontes STB, áudio Java Sound e scripts Nashorn. Versão Maven: `enginefx:enginefx:2.0.0`.
+Engine 2D desktop em Java, com cenas e componentes, renderização **GLFW + LWJGL Vulkan**, imagens RGBA, fontes STB, áudio Java Sound e scripts Nashorn legados durante a transição para Lua. Versão Maven: `enginefx:enginefx:2.1.0`.
 
 ## Documentação
 
@@ -9,12 +9,13 @@ Engine 2D desktop em Java, com cenas e componentes, renderização **GLFW + LWJG
 | [AGENTS.md](AGENTS.md) | Orientações para alterar e validar o código |
 | [BluePrint.md](BluePrint.md) | Arquitetura implementada e pontos de extensão |
 | [PRD.md](PRD.md) | Andamento, critérios de aceite e próximos passos |
-| [REVIEW.md](REVIEW.md) | Falhas corrigidas, testes e limites desta revisão |
+| [Review 2.1](docs/reviews/2026-09-12-enginefx-2.1.md) | Contratos atuais, correções e validação no JDK 25 |
+| [REVIEW.md](REVIEW.md) | Revisão histórica da migração Vulkan |
 | [VULKAN_MIGRATION_REVIEW.md](VULKAN_MIGRATION_REVIEW.md) | Auditoria original que orientou a migração |
 
 ## Requisitos e build
 
-- JDK **25 ou superior**; compilação com `--release 25`. A validação local usou OpenJDK 27.
+- JDK **25 ou superior**; compilação com `--release 25`. O checkpoint 2.1 foi validado no OpenJDK 25.0.2.
 - Os nativos Maven atuais são para **Windows x64**.
 - Driver com Vulkan para executar o jogo; os testes unitários usam bibliotecas nativas STB/shaderc, mas não precisam de GPU.
 - Maven 3.9.16 é obtido pelo wrapper; não é necessário instalar Maven separadamente. O primeiro build precisa de acesso ao Maven Central.
@@ -28,7 +29,7 @@ Na raiz da engine:
 .\mvnw.cmd clean install
 ```
 
-O build executa os testes e instala `target/enginefx-2.0.0.jar` no repositório Maven local. Para testes sem instalação: `.\mvnw.cmd test`. `-SkipTests` é opcional no script.
+O build executa os testes e instala `target/enginefx-2.1.0.jar` no repositório Maven local. Para testes sem instalação: `.\mvnw.cmd test`. `-SkipTests` é opcional no script.
 
 A engine é uma biblioteca; o exemplo executável está no repositório irmão `dinofx`. Com os dois checkouts lado a lado:
 
@@ -58,9 +59,13 @@ ResourceManager.audio("audio/theme.wav");
 ResourceManager.map("mapas/level.tmx");
 ```
 
-A resolução procura, nessa ordem, `res/`, `src/main/resources/`, `target/classes/res/` e `/res/` no classpath. Só o mesmo caminho relativo sobrepõe um asset. Não há busca por nome base nem extração temporária do JAR. O jogo deve fornecer `fonts/font.ttf` para os componentes de texto padrão, loading e debug.
+A resolução procura, nessa ordem, `res/`, `src/main/resources/`, `target/classes/res/` e `/res/` no classpath. Só o mesmo caminho relativo sobrepõe um asset. Não há busca por nome base nem extração temporária do JAR. O jogo deve fornecer `fonts/font.ttf` para os componentes de texto padrão e debug; o loading tolera falha de carregamento dessa fonte e pode ficar vazio.
 
 `setup()`, `update(long)`, `fixedUpdate(float)`, `draw()` e `dispose()` formam o ciclo de componentes. O passo fixo é de 1/60 s; velocidades nesse callback são em pixels/segundo. Em `update`, use `Time.getDeltaTime()`. Inscreva mouse com dono: `Mouse.infInstace().addListener(this, callback)`.
+
+`application.json` aceita `title`; ausência ou texto vazio mantém `Enginefx Vulkan`. `ControleBase.requestExit()` solicita saída normal do loop e pode ser repetido. `stop()` descarta uma única vez, mesmo se o descarte lançar exceção.
+
+Teclado oferece `isDown`, `wasPressedThisFrame` e `wasReleasedThisFrame`. O loop consulta eventos antes da lógica e limpa as bordas publicadas ao concluir o frame. Callbacks recebidos durante renderização ficam pendentes para o próximo frame; teclas mantidas continuam disponíveis em `isDown`.
 
 ## Diagnóstico Vulkan
 
