@@ -1,6 +1,6 @@
 # EngineFX
 
-Engine 2D desktop em Java, com cenas e componentes, renderização **GLFW + LWJGL Vulkan**, imagens RGBA, fontes STB, áudio Java Sound e scripts Nashorn legados durante a transição para Lua. Versão Maven: `enginefx:enginefx:2.1.0`.
+Engine 2D desktop em Java, com cenas e componentes, renderização **GLFW + LWJGL Vulkan**, imagens RGBA, fontes STB, áudio Java Sound e API Lua 5.4 restrita. Versão Maven: `enginefx:enginefx:3.0.0`.
 
 ## Documentação
 
@@ -12,6 +12,9 @@ Engine 2D desktop em Java, com cenas e componentes, renderização **GLFW + LWJG
 | [Review 2.1](docs/reviews/2026-09-12-enginefx-2.1.md) | Contratos atuais, correções e validação no JDK 25 |
 | [Harness Lua/Native Image](lua-harness/README.md) | Gate técnico isolado da Etapa 1A e sua reprodução |
 | [Review do gate Lua](docs/reviews/2026-09-12-lua-native-gate.md) | Correções do terceiro bloco, testes nativos e limites |
+| [Review da API Lua 2.2](docs/reviews/2026-09-13-enginefx-2.2-lua-api.md) | Implementação da Etapa 1B e contratos ainda legados |
+| [Migração JavaScript para Lua](docs/javascript-to-lua.md) | Guia de substituição da API removida na 3.0 |
+| [Review da migração Lua 3.0](docs/reviews/2026-09-13-enginefx-3.0-lua-migration.md) | Remoção de Nashorn e smoke do consumidor empacotado |
 | [REVIEW.md](REVIEW.md) | Revisão histórica da migração Vulkan |
 | [VULKAN_MIGRATION_REVIEW.md](VULKAN_MIGRATION_REVIEW.md) | Auditoria original que orientou a migração |
 
@@ -31,7 +34,7 @@ Na raiz da engine:
 .\mvnw.cmd clean install
 ```
 
-O build executa os testes e instala `target/enginefx-2.1.0.jar` no repositório Maven local. Para testes sem instalação: `.\mvnw.cmd test`. `-SkipTests` é opcional no script.
+O build executa os testes e instala `target/enginefx-3.0.0.jar` no repositório Maven local. Para testes sem instalação: `.\mvnw.cmd test`. `-SkipTests` é opcional no script.
 
 A engine é uma biblioteca; o exemplo executável está no repositório irmão `dinofx`. Com os dois checkouts lado a lado:
 
@@ -63,6 +66,28 @@ ResourceManager.map("mapas/level.tmx");
 
 A resolução procura, nessa ordem, `res/`, `src/main/resources/`, `target/classes/res/` e `/res/` no classpath. Só o mesmo caminho relativo sobrepõe um asset. Não há busca por nome base nem extração temporária do JAR. O jogo deve fornecer `fonts/font.ttf` para os componentes de texto padrão e debug; o loading tolera falha de carregamento dessa fonte e pode ficar vazio.
 
+Para conteúdo pertencente a um pacote, use `ResourceRef` e um `ResourceResolver` específico do pacote. A referência carrega `packId`, hash e caminho relativo; imagens, fontes e mapas são cacheados com essa identidade, de modo que mods com o mesmo nome de arquivo não colidem. `DirectoryResourceResolver` valida o caminho real antes de abrir o arquivo e recusa travessia, caminho absoluto, namespace alheio e fuga por symlink/junction. Para scripts que já estão no JAR, `ClasspathResourceResolver` abre somente recursos abaixo de uma raiz declarada, sem expor caminhos de disco.
+
+## Lua 5.4 (API 3.0)
+
+`ScriptRuntime` cria estados Lua isolados e é estritamente confinado à thread que o criou. Sua API pública usa apenas `ScriptValue`, `ScriptContext`, `ScriptEvent`, `ResourceRef` e interfaces da engine; tipos de LuaJava nunca chegam ao jogo ou ao script. A fonte precisa ser UTF-8, ter até 1 MiB e retornar uma tabela de callbacks.
+
+```java
+var resolver = new DirectoryResourceResolver("base", packHash, packRoot);
+var apis = new ScriptApiRegistry()
+    .register("farm", "register_plant", "farm.content", (context, args) -> ScriptValue.of(null));
+try (var lua = ScriptRuntime.lua(resolver, apis)) {
+    var module = lua.loadModule(resolver.ref("scripts/content.lua"));
+    var instance = lua.createInstance(module,
+        new ScriptContext(Set.of("farm.content"), Map.of(), clock, events::add));
+    instance.setup();
+}
+```
+
+Os callbacks opcionais são `setup`, `update`, `fixed_update`, `on_event` e `dispose`. Deltas Lua são sempre segundos. A engine expõe somente `engine.clock.now_millis`, `engine.state.get/set` e `engine.events.emit`, todos condicionados a capacidades explícitas do contexto; jogos registram apenas seus próprios namespaces. Não são expostos `GameObject`, `Scene`, `Screen`, singletons, `java`, sistema de arquivos, processo, rede, `debug`, `package` ou loaders Lua. O orçamento é de 100.000 instruções por callback e não pode ser convertido em sucesso por `pcall`/`xpcall`.
+
+`LuaComponent` adapta esses callbacks ao lifecycle de componentes, sem passar seu pai para Lua. `LuaScene` aceita apenas comandos previamente autorizados em um `LuaSceneCommandSink`; Java continua dono da composição de objetos. Para bootstrap novo, registre factories no `SceneRegistry` e chame `Executor.loadGame(args, registry)`. `application.json` aceita `bootScene`; se não vier, mantém o fallback histórico da cena anotada/primeira. A criação reflexiva de cenas Java é compatibilidade temporária e será removida no próximo contrato Native Image.
+
 `setup()`, `update(long)`, `fixedUpdate(float)`, `draw()` e `dispose()` formam o ciclo de componentes. O passo fixo é de 1/60 s; velocidades nesse callback são em pixels/segundo. Em `update`, use `Time.getDeltaTime()`. Inscreva mouse com dono: `Mouse.infInstace().addListener(this, callback)`.
 
 `application.json` aceita `title`; ausência ou texto vazio mantém `Enginefx Vulkan`. `ControleBase.requestExit()` solicita saída normal do loop e pode ser repetido. `stop()` descarta uma única vez, mesmo se o descarte lançar exceção.
@@ -81,4 +106,7 @@ java --enable-native-access=ALL-UNNAMED '-Denginefx.vulkan.validation=true' -jar
 
 A migração ainda tem critérios de aceite pendentes. Consulte [PRD.md](PRD.md) antes de tratar um smoke aprovado como validação visual ou aprovação de driver.
 
-O gate Lua 5.4/Native Image foi validado em um subprojeto isolado, sem expor LuaJava ao contrato da engine nem alterar o runtime Nashorn atual. Consulte o [relatório da prova](lua-harness/REPORT_2026-09-12.md); `ScriptRuntime` e a migração de consumidores pertencem à próxima etapa.
+O gate Lua 5.4/Native Image foi validado em um subprojeto isolado e a API JVM da engine começou na 2.2. A 3.0 removeu Nashorn, `SceneJs`, `ScriptJsComponent`, `ScriptBuilder.createJs`, `ResourceManager.script` e suporte a `.js`. Uma configuração com `type: "js"` falha com `SCRIPT_TYPE_REMOVED`; siga o [guia JavaScript para Lua](docs/javascript-to-lua.md).
+
+
+A [revisão dos blocos Lua 1B/1C](docs/reviews/2026-09-13-lua-blocks-review.md) documenta as correções de limites, conversão de listas/nulos, lifecycle e registro de cenas, além da validação dos dois consumidores contra a 3.0.0.

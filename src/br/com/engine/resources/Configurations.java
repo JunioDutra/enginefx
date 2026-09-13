@@ -8,6 +8,7 @@ public class Configurations {
 	private Integer sizeW;
 	private Integer sizeH;
 	private String title;
+    private String bootScene;
 
 	public List<ScenesDefinition> getScenes() {
 		return scenes;
@@ -52,4 +53,8 @@ public class Configurations {
 	public void setTitle(String title) {
 		this.title = title;
 	}
+
+    /** Optional stable scene id. Older files continue to use the first/annotated scene. */
+    public String getBootScene() { return bootScene == null || bootScene.isBlank() ? null : bootScene; }
+    public void setBootScene(String bootScene) { this.bootScene = bootScene; }
 }

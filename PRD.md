@@ -1,6 +1,6 @@
 # PRD — EngineFX
 
-Atualizado em 12/09/2026. Este documento acompanha o estado implementado e os próximos passos. A auditoria original está em [VULKAN_MIGRATION_REVIEW.md](VULKAN_MIGRATION_REVIEW.md); resultados atuais estão no [review 2.1](docs/reviews/2026-09-12-enginefx-2.1.md) e o histórico em [REVIEW.md](REVIEW.md).
+Atualizado em 13/09/2026. Este documento acompanha o estado implementado e os próximos passos. A auditoria original está em [VULKAN_MIGRATION_REVIEW.md](VULKAN_MIGRATION_REVIEW.md); resultados atuais estão no [review 2.1](docs/reviews/2026-09-12-enginefx-2.1.md), no [revisão dos blocos Lua 1B/1C](docs/reviews/2026-09-13-lua-blocks-review.md) e o histórico em [REVIEW.md](REVIEW.md).
 
 ## Objetivo
 
@@ -15,7 +15,8 @@ Fornecer uma engine 2D desktop em Java que permita ao jogo definir configuraçã
 | Recursos em IDE e JAR | Implementado e exercitado | Resolução exata, cache compartilhado, fontes/áudio/TMX/scripts pelo mesmo resolvedor |
 | Lifecycle e input com dono | Implementado e testado | Setup, mutações diferidas, descarte terminal e liberação de listeners |
 | Contratos 2.1 para consumidores | Implementado e testado | Título/fallback, saída normal, descarte único sob exceção e bordas pendentes de teclado; 34 testes no JDK 25.0.2 e smoke integrado FIFO |
-| Gate Lua 5.4 / Native Image | Implementado e testado isoladamente | 9 testes JVM, EXE GraalVM 25.3.4.1 com 200 ciclos e 6 rejeições nativas; DLL embutida e `.lua` externo pós-build. [Review do gate](docs/reviews/2026-09-12-lua-native-gate.md); ainda não é API da engine |
+| Gate Lua 5.4 / Native Image | Implementado e testado isoladamente | 9 testes JVM, EXE GraalVM 25.3.4.1 com 200 ciclos e 6 rejeições nativas; DLL embutida e `.lua` externo pós-build. [Review do gate](docs/reviews/2026-09-12-lua-native-gate.md) |
+| API Lua 3.0 e remoção JavaScript | Implementada e testada no JAR | `ScriptRuntime` confinado à thread, 61 testes após revisão, orçamento incluindo busca/descarte, `ScriptValue` limitado sem perda de listas/nulos, APIs por capacidade, `LuaComponent`, `LuaScene`, recursos por pacote/classpath e `SceneRegistry`; Nashorn e APIs JS removidos |
 | Prova nativa de plataforma | Parcial | Harness JNI cobre janela GLFW, consulta do loader Vulkan, STB e callback sintético nativo; dispositivo/swapchain, upload de textura, desenho e áudio nativo permanecem pendentes. Diagnósticos no review do gate |
 | Relógio e física fixa | Parcial | Passo 60 Hz e testes do núcleo; interpolação visual e solver físico completo pendentes |
 | Correções de submissão/apresentação | Parcial | Fence/semafóros e resize exercitados em FIFO; retirement formal de swapchain pendente |
@@ -24,6 +25,14 @@ Fornecer uma engine 2D desktop em Java que permita ao jogo definir configuraçã
 | Aceite visual e de driver | Pendente | Sem goldens offscreen; camada Khronos indisponível; MAILBOX não suportado na superfície local |
 
 ## Próximos passos, em ordem
+
+### 0. Tornar o bootstrap compatível com Native Image (Etapa 1D)
+
+- Remover a criação reflexiva de cenas; todas as cenas passam pelo `SceneRegistry`.
+- Desserializar `application.json` por adaptadores explícitos e centralizar o perfil `JVM_FFM`/`NATIVE_JNI` antes de inicializar LWJGL.
+- Versionar metadados Native Image mínimos e executar o harness Windows quando scripting, recursos ou bootstrap mudarem.
+
+**Aceite:** o harness nativo usa registro explícito, recursos empacotados e Lua externa; bloqueios restantes têm reprodução mínima documentada.
 
 ### 1. Fechar a validação visual e Vulkan
 

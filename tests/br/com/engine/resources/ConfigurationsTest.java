@@ -18,4 +18,12 @@ class ConfigurationsTest
         configurations.setTitle("FarmFX");
         assertEquals("FarmFX", configurations.getTitle());
     }
+
+    @Test void keepsTheFirstSceneFallbackUntilABootSceneIsConfigured()
+    {
+        Configurations configurations = new Configurations();
+        assertEquals(null, configurations.getBootScene());
+        configurations.setBootScene("farmfx:menu");
+        assertEquals("farmfx:menu", configurations.getBootScene());
+    }
 }

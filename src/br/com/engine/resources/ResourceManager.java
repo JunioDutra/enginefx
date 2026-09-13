@@ -1,11 +1,12 @@
 package br.com.engine.resources;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Properties;
-
-import javax.script.Invocable;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -17,6 +18,11 @@ import br.com.engine.graphics.Image;
 /** Typed resource facade. Exact paths are relative to res/ and include their extension. */
 public final class ResourceManager
 {
+    private static final Map<ResourceRef, Image> PACK_IMAGES = new ConcurrentHashMap<>();
+    private static final Map<PackFontKey, Font> PACK_FONTS = new ConcurrentHashMap<>();
+    private static final Map<ResourceRef, TmxMapData> PACK_MAPS = new ConcurrentHashMap<>();
+    private record PackFontKey(ResourceRef reference, float pixelSize) { }
+
     private ResourceManager() { }
 
     private static <T> T load(String path, Class<T> type, Map<String, Object> data)
@@ -39,9 +45,61 @@ public final class ResourceManager
         return Map.copyOf(result);
     }
 
-    public static Invocable script(String path, Map<String, Object> bindings)
+    /** Loads an image with a cache key that includes the content-pack identity. */
+    public static Image image(ResourceResolver resolver, ResourceRef reference)
     {
-        return load(path, Invocable.class, bindings == null ? Map.of() : bindings);
+        require(resolver, reference);
+        return PACK_IMAGES.computeIfAbsent(reference, ignored -> {
+            try { return ContentLoader.decodeImage(resolver.read(reference, Integer.MAX_VALUE), reference.toString()); }
+            catch (IOException exception) { throw new ResourceLoadException(reference.toString(), exception); }
+        });
+    }
+
+    /** Loads an immutable font with a cache key that includes its content pack and size. */
+    public static Font font(ResourceResolver resolver, ResourceRef reference, float pixelSize)
+    {
+        require(resolver, reference);
+        if (!Float.isFinite(pixelSize) || pixelSize <= 0) throw new IllegalArgumentException("Font size must be finite and positive");
+        PackFontKey key = new PackFontKey(reference, pixelSize);
+        return PACK_FONTS.computeIfAbsent(key, ignored -> {
+            try { return new Font(reference.toString(), pixelSize, resolver.read(reference, Integer.MAX_VALUE)); }
+            catch (IOException exception) { throw new ResourceLoadException(reference.toString(), exception); }
+        });
+    }
+
+    /** Creates a scene-owned audio clip from a resource that belongs to this pack. */
+    public static AudioClip audio(ResourceResolver resolver, ResourceRef reference)
+    {
+        require(resolver, reference);
+        try
+        {
+            InputStream input = resolver.open(reference);
+            return new AudioClip(reference.toString(), input);
+        }
+        catch (IOException exception) { throw new ResourceLoadException(reference.toString(), exception); }
+    }
+
+    /** Parses and caches a map using the pack-qualified reference as its key. */
+    public static TmxMapData map(ResourceResolver resolver, ResourceRef reference)
+    {
+        require(resolver, reference);
+        return PACK_MAPS.computeIfAbsent(reference, ignored -> {
+            try (InputStream input = resolver.open(reference)) { return TmxParser.parse(input); }
+            catch (IOException exception) { throw new ResourceLoadException(reference.toString(), exception); }
+        });
+    }
+
+    private static void require(ResourceResolver resolver, ResourceRef reference)
+    {
+        if (resolver == null) throw new IllegalArgumentException("Resource resolver is required");
+        resolver.requireOwned(reference);
+    }
+
+    static void clearPackCaches()
+    {
+        PACK_IMAGES.clear();
+        PACK_FONTS.clear();
+        PACK_MAPS.clear();
     }
 
     public static Configurations configurations()

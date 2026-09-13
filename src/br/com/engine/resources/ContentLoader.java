@@ -15,9 +15,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-
 import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.MemoryUtil;
 
@@ -106,13 +103,6 @@ public final class ContentLoader
                     case "json" -> new Gson().fromJson(new InputStreamReader(input, StandardCharsets.UTF_8), JsonObject.class);
                     case "xml" -> new String(input.readAllBytes(), StandardCharsets.UTF_8);
                     case "tmx" -> TmxParser.parse(input);
-                    case "js" -> {
-                        ScriptEngine engine = new ScriptEngineManager().getEngineByName("nashorn");
-                        if (engine == null) throw new IllegalStateException("Nashorn provider missing: preserve META-INF/services");
-                        bindings.forEach(engine::put);
-                        engine.eval(new InputStreamReader(input, StandardCharsets.UTF_8));
-                        yield engine;
-                    }
                     default -> throw new IllegalArgumentException("Unsupported resource format: " + extension);
                 };
             }
@@ -166,5 +156,6 @@ public final class ContentLoader
     {
         IMAGES.clear();
         FONTS.clear();
+        ResourceManager.clearPackCaches();
     }
 }

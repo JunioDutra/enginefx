@@ -2,11 +2,9 @@ package br.com.engine.core;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
-import br.com.engine.core.annotation.Bootable;
 import br.com.engine.graphics.Color;
 import br.com.engine.graphics.EngineGraphicsContext;
 import br.com.engine.graphics.Font;
@@ -31,6 +29,7 @@ public class ControleBase implements LoopSteps
 
     private List<Scene> scenes;
     private List<ScenesDefinition> sceneDefinitions;
+    private SceneRegistry sceneRegistry;
 
     private boolean bMudaScene = false;
     private int     nNextScene = -1;
@@ -68,17 +67,42 @@ public class ControleBase implements LoopSteps
     @Override
     public void setup( )
     {
+        if (stopCompleted || !sceneDefinitions.isEmpty()) throw new IllegalStateException("Controller has already been set up or stopped");
         renderLoadingScreen();
 
         configurations.getScenes( ).forEach( sc ->
         {
             this.sceneDefinitions.add( sc );
-            this.scenes.add( sc.getNewScene( ) );
+            this.scenes.add( null );
         } );
 
-        Optional<Scene> first = this.scenes.stream( ).filter( sc -> sc.getClass( ).isAnnotationPresent( Bootable.class ) ).findFirst();
-
-        nBootScene = first.isPresent( ) ? this.scenes.indexOf(first.get( )) : 0;
+        String configuredBoot = configurations.getBootScene();
+        if (configuredBoot != null)
+        {
+            String resolvedBoot = sceneRegistry != null && sceneRegistry.contains(configuredBoot) ? sceneRegistry.resolve(configuredBoot) : configuredBoot;
+            nBootScene = -1;
+            for (int index = 0; index < sceneDefinitions.size(); index++)
+            {
+                String candidate = sceneDefinitions.get(index).getScene();
+                String resolvedCandidate = sceneRegistry != null && sceneRegistry.contains(candidate) ? sceneRegistry.resolve(candidate) : candidate;
+                if (resolvedBoot.equals(resolvedCandidate))
+                {
+                    nBootScene = index;
+                    break;
+                }
+            }
+            if (nBootScene < 0) throw new IllegalArgumentException("Configured bootScene is not registered in scenes: " + configuredBoot);
+        }
+        else
+        {
+            nBootScene = 0;
+            for (int index = 0; index < sceneDefinitions.size(); index++)
+                if (sceneDefinitions.get(index).isLegacyBootable(sceneRegistry))
+                {
+                    nBootScene = index;
+                    break;
+                }
+        }
 
         nextScene( nBootScene );
     }
@@ -184,7 +208,7 @@ public class ControleBase implements LoopSteps
 
 
             getScreen( ).getGraphicsContext( ).resetTransform( );
-            Scene scene = sceneDefinitions.get( nNextScene ).getNewScene( );
+            Scene scene = sceneDefinitions.get( nNextScene ).getNewScene(sceneRegistry);
             scenes.set( nNextScene, scene );
 
             gameLogic = scene;
@@ -273,5 +297,12 @@ public class ControleBase implements LoopSteps
     public Screen getScreen( )
     {
         return screen;
+    }
+
+    /** Must be supplied before setup; registry construction is part of game bootstrap. */
+    public void setSceneRegistry(SceneRegistry registry)
+    {
+        if (!sceneDefinitions.isEmpty()) throw new IllegalStateException("Scene registry cannot change after setup");
+        sceneRegistry = registry;
     }
 }

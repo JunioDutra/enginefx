@@ -9,6 +9,6 @@ public class ScenesLoader
 {
     public List<Scene> load()
     {
-        return ResourceManager.configurations().getScenes().stream().map(ScenesDefinition::getNewScene).toList();
+        return ResourceManager.configurations().getScenes().stream().map(definition -> definition.getNewScene(null)).toList();
     }
 }

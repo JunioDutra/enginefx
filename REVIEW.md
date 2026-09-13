@@ -57,3 +57,8 @@ Não foram implementados nesta revisão: goldens offscreen, retirement por fence
 Esses itens e os critérios de aceite estão em [PRD.md](PRD.md). O [BluePrint.md](BluePrint.md) documenta apenas o fluxo implementado. O conjunto principal agora usa `README.md`, `AGENTS.md`, `BluePrint.md` e `PRD.md`; o blueprint antigo foi substituído, mantendo seu histórico no Git.
 
 Referências para a correção de memória/texto: [LWJGL STBImage](https://javadoc.lwjgl.org/org/lwjgl/stb/STBImage.html), [MemoryUtil](https://javadoc.lwjgl.org/org/lwjgl/system/MemoryUtil.html) e [STBTruetype](https://javadoc.lwjgl.org/org/lwjgl/stb/STBTruetype.html). As regras de apresentação continuam seguindo as fontes Khronos citadas na auditoria original.
+
+
+## Revisão dos blocos Lua 1B/1C — 13/09/2026
+
+A [revisão conjunta da EngineFX 3.0](docs/reviews/2026-09-13-lua-blocks-review.md) registra correções e aceite JVM/JAR: 61 testes da engine, 5 do DinoFX e 36 do FarmFX, com smokes de 1.680 e 720 frames. A etapa 1D/Native Image integrado permanece pendente.
