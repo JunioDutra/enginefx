@@ -58,7 +58,7 @@ Mantenha o runtime aberto durante toda a vida da cena. Fechá-lo logo após adic
 
 Use `DirectoryResourceResolver` para um pacote instalado. Lua deve ser UTF-8, terminar em `.lua` e retornar uma única tabela. Os callbacks aceitos são `setup`, `update`, `fixed_update`, `on_event` e `dispose`.
 
-Para lógica de cena, registre uma factory Java no `SceneRegistry` e componha um `LuaScene` ou `LuaComponent` com comandos e APIs autorizados. A configuração `application.json` continua a apontar para a classe Java da cena com `"type": "java"`.
+Para lógica de cena, registre uma factory Java no `SceneRegistry` e componha um `LuaScene` ou `LuaComponent` com comandos e APIs autorizados. A configuração `application.json` aponta para o id estável da factory, por exemplo `"scene": "game:menu"`; ela não contém nome de classe. `"type": "java"` pode permanecer temporariamente em arquivos antigos, mas não muda a criação explícita.
 
 
 ## Valores e limites

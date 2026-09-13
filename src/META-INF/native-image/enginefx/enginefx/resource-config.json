@@ -1,0 +1,9 @@
+{
+  "resources": {
+    "includes": [
+      { "pattern": "(^|.*/)lua5464\\.dll$" },
+      { "pattern": "^res/.*$" },
+      { "pattern": "^windows/x64/org/lwjgl/.*\\.dll$" }
+    ]
+  }
+}

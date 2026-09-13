@@ -20,7 +20,7 @@ public final class LwjglVulkanSmokeApp
 
 	public static void main( String[] args )
 	{
-		System.setProperty( "org.lwjgl.system.memoryBackend", System.getProperty( "org.lwjgl.system.memoryBackend", "ffm" ) );
+		RuntimeProfile.initialize();
 		GLFWErrorCallback.createPrint( System.err ).set( );
 
 		if( !glfwInit( ) )

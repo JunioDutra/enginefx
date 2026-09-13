@@ -9,14 +9,19 @@ import br.com.engine.platform.lwjgl.*;
 
 public class LwjglVulkanExecutor
 {
+    private final RuntimeProfile runtimeProfile;
     private final SceneRegistry sceneRegistry;
 
-    public LwjglVulkanExecutor() { this(null); }
-    public LwjglVulkanExecutor(SceneRegistry sceneRegistry) { this.sceneRegistry = sceneRegistry; }
+    public LwjglVulkanExecutor(RuntimeProfile runtimeProfile, SceneRegistry sceneRegistry)
+    {
+        this.runtimeProfile = runtimeProfile;
+        this.sceneRegistry = sceneRegistry;
+        if (runtimeProfile == null || sceneRegistry == null) throw new IllegalArgumentException("Runtime profile and scene registry are required");
+    }
 
     public void start()
     {
-        System.setProperty("org.lwjgl.system.memoryBackend", System.getProperty("org.lwjgl.system.memoryBackend", "ffm"));
+        runtimeProfile.requireInitialized();
         GLFWErrorCallback callback = GLFWErrorCallback.createPrint(System.err).set();
         ControleBase control = null;
         try
@@ -24,7 +29,7 @@ public class LwjglVulkanExecutor
             if (!glfwInit()) throw new IllegalStateException("Unable to initialize GLFW");
             if (!glfwVulkanSupported()) throw new IllegalStateException("Vulkan is not supported on this machine");
             control = ControleBase.getInstance();
-            if (sceneRegistry != null) control.setSceneRegistry(sceneRegistry);
+            control.setSceneRegistry(sceneRegistry);
             int width = (int)control.getScreen().getWidth(), height = (int)control.getScreen().getHeight();
             VulkanGraphicsContext graphics = new VulkanGraphicsContext();
             graphics.setCanvasSize(width, height);

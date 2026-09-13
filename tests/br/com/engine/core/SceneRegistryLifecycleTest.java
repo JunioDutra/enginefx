@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
-import br.com.engine.core.annotation.Bootable;
 import br.com.engine.platform.lwjgl.VulkanGraphicsContext;
 import br.com.engine.resources.ScenesDefinition;
 
@@ -28,7 +27,7 @@ class SceneRegistryLifecycleTest
         }).alias("legacy.Menu", "game:menu");
         assertThrows(IllegalArgumentException.class, () -> registry.register("legacy.Menu", () -> new Scene() { }));
         var control = control();
-        control.getConfigurations().setScenes(List.of(new ScenesDefinition("game:menu", "java")));
+        control.getConfigurations().setScenes(List.of(new ScenesDefinition("game:menu")));
         control.getConfigurations().setBootScene("legacy.Menu");
         control.setSceneRegistry(registry);
         try
@@ -47,29 +46,51 @@ class SceneRegistryLifecycleTest
         assertEquals(2, disposed.get());
     }
 
-    @Test void legacyBootAnnotationDoesNotConstructUnusedScenes() throws Exception
+    @Test void firstRegisteredConfigurationSceneIsTheDeterministicBootFallback() throws Exception
     {
-        LegacyBoot.created = 0;
+        var firstCreated = new AtomicInteger();
+        var secondCreated = new AtomicInteger();
         var control = control();
         control.getConfigurations().setScenes(List.of(
-            new ScenesDefinition("game:first", "java"), new ScenesDefinition(LegacyBoot.class.getName(), "java")));
+            new ScenesDefinition("game:first"), new ScenesDefinition("game:second")));
         control.getConfigurations().setBootScene(null);
-        control.setSceneRegistry(new SceneRegistry().register("game:first", () -> new Scene() { }));
+        control.setSceneRegistry(new SceneRegistry()
+            .register("game:first", () -> { firstCreated.incrementAndGet(); return new Scene() { }; })
+            .register("game:second", () -> { secondCreated.incrementAndGet(); return new Scene() { }; }));
         try
         {
             control.setup();
-            assertEquals(1, control.getBootScene());
-            assertEquals(0, LegacyBoot.created);
+            assertEquals(0, control.getBootScene());
+            assertEquals(0, firstCreated.get());
+            assertEquals(0, secondCreated.get());
             control.processLogics();
-            assertEquals(1, LegacyBoot.created);
+            assertEquals(1, firstCreated.get());
+            assertEquals(0, secondCreated.get());
         }
         finally { control.stop(); }
     }
 
-    @Bootable public static class LegacyBoot extends Scene
+    @Test void invalidConfigurationDoesNotPartiallyStartTheController() throws Exception
     {
-        static int created;
-        public LegacyBoot() { created++; }
+        var control = control();
+        var registry = new SceneRegistry().register("game:valid", () -> new Scene() { });
+        control.setSceneRegistry(registry);
+        control.getConfigurations().setScenes(List.of(new ScenesDefinition("game:valid"), new ScenesDefinition("game:missing")));
+        control.getConfigurations().setBootScene(null);
+        try
+        {
+            assertThrows(IllegalArgumentException.class, control::setup);
+            assertNull(control.getCurrentScene(), "Invalid config must not start the loading scene");
+            assertTrue(control.getSceneDefinitions().isEmpty());
+            control.getConfigurations().setScenes(List.of(new ScenesDefinition("game:valid")));
+            control.getConfigurations().setBootScene("game:missing");
+            assertThrows(IllegalArgumentException.class, control::setup);
+            assertNull(control.getCurrentScene());
+            assertTrue(control.getSceneDefinitions().isEmpty());
+            control.getConfigurations().setBootScene("game:valid");
+            assertDoesNotThrow(control::setup);
+        }
+        finally { control.stop(); }
     }
 
     private static ControleBase control() throws Exception

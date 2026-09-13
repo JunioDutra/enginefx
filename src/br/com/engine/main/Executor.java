@@ -4,16 +4,11 @@ import br.com.engine.core.SceneRegistry;
 
 public class Executor
 {
-    public static void loadGame( String[] args ) 
-    {
-        System.setProperty( "enginefx.backend", "vulkan" );
-        new LwjglVulkanExecutor( ).start( );
-    }
-
-    /** 2.2 bootstrap path using explicit scene factories. */
+    /** Starts a game with explicit scene factories and a fixed runtime profile. */
     public static void loadGame(String[] args, SceneRegistry scenes)
     {
-        System.setProperty("enginefx.backend", "vulkan");
-        new LwjglVulkanExecutor(scenes).start();
+        if (scenes == null) throw new IllegalArgumentException("Scene registry is required");
+        RuntimeProfile profile = RuntimeProfile.initialize();
+        new LwjglVulkanExecutor(profile, scenes).start();
     }
 }

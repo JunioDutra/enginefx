@@ -52,7 +52,7 @@ class LuaSceneTest
         SceneRegistry registry = new SceneRegistry().register("game:menu", () -> new Scene() { }).alias("legacy.Menu", "game:menu");
         assertEquals("game:menu", registry.resolve("legacy.Menu"));
         assertNotNull(registry.create("game:menu"));
-        assertNotNull(new br.com.engine.resources.ScenesDefinition("legacy.Menu", "java").getNewScene(registry));
+        assertNotNull(registry.create("legacy.Menu"));
         assertThrows(IllegalArgumentException.class, () -> registry.create("missing:scene"));
     }
 

@@ -42,20 +42,20 @@ Não há container de injeção, ECS de dados, barramento de eventos geral, serv
 
 Fontes de produção ficam em `src/br/com/engine`; testes, em `tests/br/com/engine`. O POM configura essa disposição explicitamente.
 
-O subprojeto `lua-harness/` não é parte do artefato `enginefx` nem do ciclo de cenas. Ele é a prova técnica versionada da Etapa 1A: LuaJava/Lua 5.4 no JVM e no Native Image, com DLL e metadados JNI explícitos. Seu hook e wrappers de chamadas protegidas propagam o limite de instruções; o script de verificação executa casos positivos e negativos em pasta isolada. Desde a 2.2, o artefato principal usa LuaJava somente no pacote interno `scripting.internal`; o contrato público não carrega tipos da biblioteca. A 3.0 removeu Nashorn por completo.
+O subprojeto `lua-harness/` é a prova técnica versionada da Etapa 1A. `bootstrap-harness/` é a aceitação integrada da Etapa 1D: depende do JAR da engine, usa `application.json` empacotado, `SceneRegistry`, o perfil `NATIVE_JNI` e uma fonte Lua externa criada após o build. Os metadados manuais de produção ficam em `src/META-INF/native-image/enginefx/enginefx/`; o agent serve somente para descoberta e suas saídas precisam ser reduzidas e revisadas. Desde a 2.2, o artefato principal usa LuaJava somente no pacote interno `scripting.internal`; o contrato público não carrega tipos da biblioteca. A 3.0 removeu Nashorn por completo.
 
 ## Inicialização e cenas
 
-1. `Executor.loadGame` seleciona Vulkan e inicia `LwjglVulkanExecutor`.
-2. O launcher configura FFM antes de inicializar LWJGL, instala callback de erro GLFW e carrega a configuração.
+1. `Executor.loadGame(args, registry)` recebe todas as factories explícitas, seleciona `RuntimeProfile` e inicia `LwjglVulkanExecutor`.
+2. `RuntimeProfile` configura `ffm` no JVM ou `unsafe` na imagem nativa antes de qualquer classe GLFW, Vulkan ou Lua; o perfil é fixado em estado privado sincronizado, e o launcher verifica novamente perfil/backend antes de instalar o callback GLFW e carregar a configuração. A propriedade de diagnóstico enginefx.runtimeProfile.applied não autoriza startup nem permite reinicializar o perfil.
 3. O controlador cria `Screen`; o launcher associa `VulkanGraphicsContext` e abre instance, janela, device e sessão de renderização.
-4. `ControleBase.setup` cria loading, resolve primeiro factories do `SceneRegistry`, preserva temporariamente o adaptador reflexivo para cenas Java legadas e identifica `bootScene` explícita ou a cena `@Bootable`/primeira. Definições `type: "js"` são recusadas com `SCRIPT_TYPE_REMOVED`.
+4. `ControleBase.setup` valida todos os ids e o boot antes de publicar definições ou criar o loading. Configuração inválida não deixa uma cena parcial ativa. O boot é explícito ou a primeira cena declarada. Cada visita chama somente a factory do registro; não há `Class.forName`, `@Bootable` ou criação reflexiva. Definições `type: "js"` são recusadas com `SCRIPT_TYPE_REMOVED`.
 5. `nextScene(index)` agenda a troca. Na próxima iteração, a cena anterior é descartada, uma nova instância é criada, a câmera/transformação e o acumulador de física são reiniciados.
 6. O encerramento fecha owners Vulkan, descarta a cena, limpa caches Java e termina GLFW.
 
 Falhas de setup são propagadas e o estado parcialmente criado é descartado. A engine recria a instância ao revisitar uma cena; persistência entre visitas precisa de estado fora dela.
 
-Em 2.1, a janela recebe `Configurations.getTitle()`, com fallback para configurações antigas. `requestExit()` marca a saída normal do loop; `stop()` é terminal e idempotente, inclusive após exceção de descarte. A 2.2 acrescenta `Configurations.bootScene`, `SceneRegistry` e `Executor.loadGame(args, registry)`. Factories do registro só são chamadas na visita à cena. A escolha de boot resolve aliases nos dois lados; o fallback legado consulta `@Bootable` sem instanciar nem inicializar classes. O loading pode ficar vazio quando o carregamento de sua fonte falha. Os testes de shutdown contam descartes; não cobrem toda falha parcial de inicialização nativa.
+Em 2.1, a janela recebe `Configurations.getTitle()`, com fallback para configurações antigas. `requestExit()` marca a saída normal do loop; `stop()` é terminal e idempotente, inclusive após exceção de descarte. A 2.2 acrescentou `Configurations.bootScene`, `SceneRegistry` e `Executor.loadGame(args, registry)`. A 1D fixa esse contrato: o parser de `application.json` percorre a árvore JSON e cria somente DTOs conhecidos, sem Gson refletir modelos; aliases resolvem os dois lados do boot e o fallback é o primeiro item do arquivo. O loading pode ficar vazio quando o carregamento de sua fonte falha. Os testes de shutdown contam descartes; não cobrem toda falha parcial de inicialização nativa.
 
 ## Tempo, componentes e colisões
 

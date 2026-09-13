@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Properties;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
 import br.com.engine.audio.AudioClip;
@@ -111,10 +110,6 @@ public final class ResourceManager
             if (!(exception.getCause() instanceof FileNotFoundException)) throw exception;
             config = json("application.json");
         }
-        Configurations result = new Gson().fromJson(config, Configurations.class);
-        if (result == null || result.getScenes() == null || result.getSizeW() == null ||
-            result.getSizeH() == null || result.getSizeW() <= 0 || result.getSizeH() <= 0)
-            throw new IllegalArgumentException("Configuration requires scenes and positive sizeW/sizeH");
-        return result;
+        return ConfigurationsParser.parse(config);
     }
 }

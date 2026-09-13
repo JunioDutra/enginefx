@@ -2,5 +2,6 @@
 /.settings/
 /target/
 /lua-harness/target/
+/bootstrap-harness/target/
 .classpath
 .project

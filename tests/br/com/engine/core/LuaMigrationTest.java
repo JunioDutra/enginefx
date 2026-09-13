@@ -57,7 +57,7 @@ class LuaMigrationTest
     @Test void rejectsTheRemovedJavaScriptSceneTypeWithAMigrationCode()
     {
         ScriptTypeRemovedException exception = assertThrows(ScriptTypeRemovedException.class,
-            () -> new ScenesDefinition("scripts/object.json", "js").getNewScene(null));
+            () -> new ScenesDefinition("scripts/object.json", "js"));
         assertEquals(ScriptTypeRemovedException.CODE, exception.code());
         assertTrue(exception.getMessage().contains("Lua"));
     }

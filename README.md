@@ -15,6 +15,7 @@ Engine 2D desktop em Java, com cenas e componentes, renderização **GLFW + LWJG
 | [Review da API Lua 2.2](docs/reviews/2026-09-13-enginefx-2.2-lua-api.md) | Implementação da Etapa 1B e contratos ainda legados |
 | [Migração JavaScript para Lua](docs/javascript-to-lua.md) | Guia de substituição da API removida na 3.0 |
 | [Review da migração Lua 3.0](docs/reviews/2026-09-13-enginefx-3.0-lua-migration.md) | Remoção de Nashorn e smoke do consumidor empacotado |
+| [Review bootstrap Native Image](docs/reviews/2026-09-13-native-bootstrap.md) | Contratos explícitos da Etapa 1D e evidências disponíveis |
 | [REVIEW.md](REVIEW.md) | Revisão histórica da migração Vulkan |
 | [VULKAN_MIGRATION_REVIEW.md](VULKAN_MIGRATION_REVIEW.md) | Auditoria original que orientou a migração |
 
@@ -47,7 +48,14 @@ O script integrado instala a engine, empacota o jogo e, com `-Smoke`, roda as ce
 
 ## Contrato para jogos
 
-O jogo fornece `application.json`, classes `Scene` e assets. Sua entrada chama `Executor.loadGame(args)`.
+O jogo fornece `application.json`, factories de `Scene` e assets. Sua entrada registra todos os ids antes de chamar `Executor.loadGame(args, scenes)`:
+
+```java
+SceneRegistry scenes = new SceneRegistry()
+    .register("game:menu", MenuScene::new)
+    .register("game:play", PlayScene::new);
+Executor.loadGame(args, scenes);
+```
 
 ```java
 GameObject player = new GameObject("player");
@@ -86,7 +94,7 @@ try (var lua = ScriptRuntime.lua(resolver, apis)) {
 
 Os callbacks opcionais são `setup`, `update`, `fixed_update`, `on_event` e `dispose`. Deltas Lua são sempre segundos. A engine expõe somente `engine.clock.now_millis`, `engine.state.get/set` e `engine.events.emit`, todos condicionados a capacidades explícitas do contexto; jogos registram apenas seus próprios namespaces. Não são expostos `GameObject`, `Scene`, `Screen`, singletons, `java`, sistema de arquivos, processo, rede, `debug`, `package` ou loaders Lua. O orçamento é de 100.000 instruções por callback e não pode ser convertido em sucesso por `pcall`/`xpcall`.
 
-`LuaComponent` adapta esses callbacks ao lifecycle de componentes, sem passar seu pai para Lua. `LuaScene` aceita apenas comandos previamente autorizados em um `LuaSceneCommandSink`; Java continua dono da composição de objetos. Para bootstrap novo, registre factories no `SceneRegistry` e chame `Executor.loadGame(args, registry)`. `application.json` aceita `bootScene`; se não vier, mantém o fallback histórico da cena anotada/primeira. A criação reflexiva de cenas Java é compatibilidade temporária e será removida no próximo contrato Native Image.
+`LuaComponent` adapta esses callbacks ao lifecycle de componentes, sem passar seu pai para Lua. `LuaScene` aceita apenas comandos previamente autorizados em um `LuaSceneCommandSink`; Java continua dono da composição de objetos. Toda cena de `application.json` é um id de `SceneRegistry`, não um nome de classe. `bootScene` também é um id registrado; se ausente, a primeira cena declarada é o boot determinístico. `type: "js"` continua falhando com `SCRIPT_TYPE_REMOVED`; `type: "java"` é aceito somente como compatibilidade de configuração e não ativa reflexão.
 
 `setup()`, `update(long)`, `fixedUpdate(float)`, `draw()` e `dispose()` formam o ciclo de componentes. O passo fixo é de 1/60 s; velocidades nesse callback são em pixels/segundo. Em `update`, use `Time.getDeltaTime()`. Inscreva mouse com dono: `Mouse.infInstace().addListener(this, callback)`.
 
@@ -102,11 +110,14 @@ $env:VK_LAYER_VALIDATE_SYNC = '1'
 java --enable-native-access=ALL-UNNAMED '-Denginefx.vulkan.validation=true' -jar ..\dinofx\target\dino.jar
 ```
 
-`presentMode` aceita `auto` (MAILBOX se disponível, senão FIFO), `fifo` e `mailbox`. Uma escolha explícita sem suporte falha com diagnóstico. A validação exige a camada Khronos instalada. O launcher usa o backend de memória FFM por padrão e respeita `-Dorg.lwjgl.system.memoryBackend`.
+`presentMode` aceita `auto` (MAILBOX se disponível, senão FIFO), `fifo` e `mailbox`. Uma escolha explícita sem suporte falha com diagnóstico. A validação exige a camada Khronos instalada. `RuntimeProfile` escolhe o backend antes de carregar GLFW, Vulkan ou Lua: no JVM, `JVM_FFM`/`ffm`; na imagem nativa, `NATIVE_JNI`/`unsafe`. Para diagnosticar, use `-Denginefx.runtimeProfile=jvm-ffm` ou `native-jni` antes do launcher. Não defina `org.lwjgl.system.memoryBackend` diretamente: divergências falham cedo.
 
 A migração ainda tem critérios de aceite pendentes. Consulte [PRD.md](PRD.md) antes de tratar um smoke aprovado como validação visual ou aprovação de driver.
 
-O gate Lua 5.4/Native Image foi validado em um subprojeto isolado e a API JVM da engine começou na 2.2. A 3.0 removeu Nashorn, `SceneJs`, `ScriptJsComponent`, `ScriptBuilder.createJs`, `ResourceManager.script` e suporte a `.js`. Uma configuração com `type: "js"` falha com `SCRIPT_TYPE_REMOVED`; siga o [guia JavaScript para Lua](docs/javascript-to-lua.md).
+O gate Lua 5.4/Native Image foi validado inicialmente em um subprojeto isolado. A Etapa 1D adiciona `bootstrap-harness/`, que compila a engine como Native Image e verifica configuração empacotada, registro de cenas e módulo Lua externo criado depois do build. Os metadados manuais ficam em `src/META-INF/native-image/enginefx/enginefx/`; o tracing agent só pode descobrir hipóteses, nunca gerar metadados aceitos sem revisão.
 
 
 A [revisão dos blocos Lua 1B/1C](docs/reviews/2026-09-13-lua-blocks-review.md) documenta as correções de limites, conversão de listas/nulos, lifecycle e registro de cenas, além da validação dos dois consumidores contra a 3.0.0.
+
+
+A validação atual da etapa 1D está no [review do bootstrap integrado](docs/reviews/2026-09-13-native-bootstrap.md): perfil fixo, configuração validada antes do loading e EXE com Lua externa. O gate executa 32 ciclos e seis rejeições esperadas; não representa renderer ou áudio nativos completos.

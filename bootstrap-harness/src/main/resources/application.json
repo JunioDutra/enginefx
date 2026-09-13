@@ -1,0 +1,10 @@
+{
+  "title": "EngineFX native bootstrap harness",
+  "debugMode": false,
+  "sizeW": 64,
+  "sizeH": 64,
+  "bootScene": "native:scene",
+  "scenes": [
+    { "scene": "native:scene", "title": "Native", "menu": false }
+  ]
+}

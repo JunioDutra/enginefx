@@ -62,3 +62,8 @@ Referências para a correção de memória/texto: [LWJGL STBImage](https://javad
 ## Revisão dos blocos Lua 1B/1C — 13/09/2026
 
 A [revisão conjunta da EngineFX 3.0](docs/reviews/2026-09-13-lua-blocks-review.md) registra correções e aceite JVM/JAR: 61 testes da engine, 5 do DinoFX e 36 do FarmFX, com smokes de 1.680 e 720 frames. A etapa 1D/Native Image integrado permanece pendente.
+
+
+## Revisão do bootstrap 1D — 13/09/2026
+
+O [review do bootstrap Native Image](docs/reviews/2026-09-13-native-bootstrap.md) registra o checkpoint posterior aos blocos Lua: 69 testes da engine, perfil fixo validado antes da plataforma, configuração sem estado parcial e gate integrado local com 32 ciclos/6 rejeições nativas. DinoFX e FarmFX foram revalidados em FIFO. O aceite é do bootstrap; renderer, áudio e distribuição nativa dos jogos continuam pendentes.

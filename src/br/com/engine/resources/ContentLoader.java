@@ -18,8 +18,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.MemoryUtil;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 import br.com.engine.audio.AudioClip;
 import br.com.engine.graphics.Font;
@@ -100,7 +100,7 @@ public final class ContentLoader
                         properties.load(new InputStreamReader(input, StandardCharsets.UTF_8));
                         yield properties;
                     }
-                    case "json" -> new Gson().fromJson(new InputStreamReader(input, StandardCharsets.UTF_8), JsonObject.class);
+                    case "json" -> JsonParser.parseReader(new InputStreamReader(input, StandardCharsets.UTF_8)).getAsJsonObject();
                     case "xml" -> new String(input.readAllBytes(), StandardCharsets.UTF_8);
                     case "tmx" -> TmxParser.parse(input);
                     default -> throw new IllegalArgumentException("Unsupported resource format: " + extension);
