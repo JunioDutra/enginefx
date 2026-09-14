@@ -22,6 +22,7 @@ public class Sprite extends SimpleComponent
 	protected int spSizeWScaled;
 	protected int spSizeHScaled;
 
+	private boolean explicitScale;
 	private int cx;
 	private int cy;
 
@@ -107,7 +108,9 @@ public class Sprite extends SimpleComponent
 
 	public void scale( int width, int height )
     {
-		this.spSizeWScaled = width;
+		if (width <= 0 || height <= 0) throw new IllegalArgumentException("Sprite size must be positive");
+        explicitScale = true;
+        this.spSizeWScaled = width;
 		this.spSizeHScaled = height;
     }
 
@@ -145,8 +148,9 @@ public class Sprite extends SimpleComponent
 	            }
 	        }
 
-	        this.spSizeWScaled = this.spSizeW = spriteWidth;
-	        this.spSizeHScaled = this.spSizeH = spriteHeight;
+	        this.spSizeW = spriteWidth;
+            this.spSizeH = spriteHeight;
+            if (!explicitScale) { spSizeWScaled = spriteWidth; spSizeHScaled = spriteHeight; }
 
 	        currentPoint = pontos.get( 0 );
 		}
@@ -154,8 +158,9 @@ public class Sprite extends SimpleComponent
 		{
 			currentPoint = new IntPoint( 0, 0 );
 
-			this.spSizeWScaled = this.spSizeW = (int)getImage( ).getWidth( );
-			this.spSizeHScaled = this.spSizeH = (int)getImage( ).getHeight( );
+			this.spSizeW = (int)getImage().getWidth();
+            this.spSizeH = (int)getImage().getHeight();
+            if (!explicitScale) { spSizeWScaled = spSizeW; spSizeHScaled = spSizeH; }
 		}
 	}
 

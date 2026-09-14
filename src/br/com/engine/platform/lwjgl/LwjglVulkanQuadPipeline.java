@@ -1,8 +1,6 @@
 package br.com.engine.platform.lwjgl;
 
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.util.shaderc.Shaderc.shaderc_glsl_fragment_shader;
-import static org.lwjgl.util.shaderc.Shaderc.shaderc_glsl_vertex_shader;
 import static org.lwjgl.vulkan.VK10.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 import static org.lwjgl.vulkan.VK10.VK_BLEND_FACTOR_SRC_ALPHA;
 import static org.lwjgl.vulkan.VK10.VK_BLEND_OP_ADD;
@@ -51,6 +49,7 @@ import static org.lwjgl.vulkan.VK10.vkDestroyShaderModule;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
+import java.io.IOException;
 
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
@@ -75,35 +74,6 @@ import org.lwjgl.vulkan.VkVertexInputBindingDescription;
 
 public class LwjglVulkanQuadPipeline implements AutoCloseable
 {
-	private static final String VERTEX_SHADER = 
-		"#version 450\n" +
-		"layout(location = 0) in vec2 inPosition;\n" +
-		"layout(location = 1) in vec2 inTexCoord;\n" +
-		"layout(location = 2) in vec4 inColor;\n" +
-		"layout(push_constant) uniform Constants {\n" +
-		"    mat4 projection;\n" +
-		"} push;\n" +
-		"layout(location = 0) out vec2 fragTexCoord;\n" +
-		"layout(location = 1) out vec4 fragColor;\n" +
-		"void main() {\n" +
-		"    gl_Position = push.projection * vec4(inPosition, 0.0, 1.0);\n" +
-		"    fragTexCoord = inTexCoord;\n" +
-		"    fragColor = inColor;\n" +
-		"}\n";
-
-	private static final String FRAGMENT_SHADER = 
-		"#version 450\n" +
-		"layout(location = 0) in vec2 fragTexCoord;\n" +
-		"layout(location = 1) in vec4 fragColor;\n" +
-		"layout(binding = 0) uniform sampler2D texSampler;\n" +
-		"layout(location = 0) out vec4 outColor;\n" +
-		"vec3 srgbToLinear(vec3 c) { return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), greaterThan(c, vec3(0.04045))); }\n" +
-		"void main() {\n" +
-		"    vec4 texColor = texture(texSampler, fragTexCoord);\n" +
-		"    outColor = texColor * fragColor;\n" +
-		"    if (SRGB_ATTACHMENT) outColor.rgb = srgbToLinear(texColor.rgb) * srgbToLinear(fragColor.rgb);\n" +
-		"}\n";
-
 	private final LwjglVulkanDevice device;
 	private final long descriptorSetLayout;
 	private final long pipelineLayout;
@@ -203,8 +173,8 @@ public class LwjglVulkanQuadPipeline implements AutoCloseable
 	{
 		try( MemoryStack stack = stackPush( ) )
 		{
-			ByteBuffer vertSpv = LwjglVulkanShaderCompiler.compileShader( VERTEX_SHADER, shaderc_glsl_vertex_shader, "quad.vert" );
-			ByteBuffer fragSpv = LwjglVulkanShaderCompiler.compileShader( FRAGMENT_SHADER.replace( "SRGB_ATTACHMENT", Boolean.toString( srgbAttachment ) ), shaderc_glsl_fragment_shader, "quad.frag" );
+			ByteBuffer vertSpv = loadSpirv( "shaders/quad.vert.spv" );
+			ByteBuffer fragSpv = loadSpirv( srgbAttachment ? "shaders/quad-srgb.frag.spv" : "shaders/quad-unorm.frag.spv" );
 
 			long vertModule = createShaderModule( stack, vertSpv );
 			long fragModule = createShaderModule( stack, fragSpv );
@@ -330,6 +300,19 @@ public class LwjglVulkanQuadPipeline implements AutoCloseable
 
 			return pointer.get( 0 );
 		}
+	}
+
+	private static ByteBuffer loadSpirv( String resource )
+	{
+		try( var input = LwjglVulkanQuadPipeline.class.getClassLoader().getResourceAsStream( resource ) )
+		{
+			if( input == null ) throw new IllegalStateException( "Missing precompiled Vulkan shader: " + resource );
+			byte[] bytes = input.readAllBytes( );
+			if( bytes.length == 0 || bytes.length % 4 != 0 ) throw new IllegalStateException( "Invalid SPIR-V shader: " + resource );
+			ByteBuffer output = MemoryUtil.memAlloc( bytes.length );
+			return output.put( bytes ).flip( );
+		}
+		catch( IOException exception ) { throw new IllegalStateException( "Cannot read precompiled Vulkan shader: " + resource, exception ); }
 	}
 
 	private long createShaderModule( MemoryStack stack, ByteBuffer spirv )

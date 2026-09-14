@@ -4,7 +4,7 @@ Atualizado em 13/09/2026. Descreve o código implementado; trabalho futuro está
 
 ## Arquitetura e dependências
 
-Engine 2D monolítica com composição de componentes. Java 25, Maven, LWJGL 3.4.3 (Vulkan/GLFW/STB/shaderc), Java Sound, LuaJava/Lua 5.4, Gson e Commons Lang. JUnit 5 cobre o núcleo e contratos nativos sem criar um dispositivo Vulkan.
+Engine 2D monolítica com composição de componentes. Java 25, Maven, LWJGL 3.4.3 (Vulkan/GLFW/STB/OpenAL), Java Sound, LuaJava/Lua 5.4, Gson e Commons Lang. `shaderc` fica restrito ao perfil de ferramentas de build; JUnit 5 cobre o núcleo e contratos nativos sem criar um dispositivo Vulkan.
 
 ```mermaid
 flowchart TD
@@ -50,7 +50,7 @@ O subprojeto `lua-harness/` é a prova técnica versionada da Etapa 1A. `bootstr
 2. `RuntimeProfile` configura `ffm` no JVM ou `unsafe` na imagem nativa antes de qualquer classe GLFW, Vulkan ou Lua; o perfil é fixado em estado privado sincronizado, e o launcher verifica novamente perfil/backend antes de instalar o callback GLFW e carregar a configuração. A propriedade de diagnóstico enginefx.runtimeProfile.applied não autoriza startup nem permite reinicializar o perfil.
 3. O controlador cria `Screen`; o launcher associa `VulkanGraphicsContext` e abre instance, janela, device e sessão de renderização.
 4. `ControleBase.setup` valida todos os ids e o boot antes de publicar definições ou criar o loading. Configuração inválida não deixa uma cena parcial ativa. O boot é explícito ou a primeira cena declarada. Cada visita chama somente a factory do registro; não há `Class.forName`, `@Bootable` ou criação reflexiva. Definições `type: "js"` são recusadas com `SCRIPT_TYPE_REMOVED`.
-5. `nextScene(index)` agenda a troca. Na próxima iteração, a cena anterior é descartada, uma nova instância é criada, a câmera/transformação e o acumulador de física são reiniciados.
+5. `nextScene(index)` ou `nextScene(sceneId)` agenda a troca. A sobrecarga por id resolve o registro e a lista configurada, sem depender da posição no JSON. Na próxima iteração, a cena anterior é descartada, uma nova instância é criada, a câmera/transformação e o acumulador de física são reiniciados.
 6. O encerramento fecha owners Vulkan, descarta a cena, limpa caches Java e termina GLFW.
 
 Falhas de setup são propagadas e o estado parcialmente criado é descartado. A engine recria a instância ao revisitar uma cena; persistência entre visitas precisa de estado fora dela.
@@ -85,7 +85,7 @@ Descarte remove inscrições de mouse pertencentes à cena, ao objeto e aos comp
 - Texturas ausentes do frame são descartadas após a espera. Upload de imagens ainda usa espera de fila; o pool de descritores tem capacidade fixa.
 - Aposentadoria da swapchain usa `vkDeviceWaitIdle`; fences de apresentação via maintenance1 ainda não estão implementados.
 
-O shader converte RGB sRGB para linear ao escrever em attachment sRGB; alpha permanece linear. O caminho UNORM mantém a composição legada. Esses contratos possuem testes estruturais, mas ainda faltam comparação de pixels e aceite visual.
+O shader converte RGB sRGB para linear ao escrever em attachment sRGB; alpha permanece linear. O caminho UNORM mantém a composição legada. As fontes GLSL versionadas em `src/resources/shaders/` são compiladas por `compile-shaders.ps1` para três recursos SPIR-V; JVM e Native Image só carregam esses binários, e a configuração de recursos nativos os inclui na imagem. Esses contratos possuem testes estruturais, mas ainda faltam comparação de pixels e aceite visual.
 
 ## Recursos, texto e áudio
 
@@ -93,7 +93,7 @@ O shader converte RGB sRGB para linear ao escrever em attachment sRGB; alpha per
 
 STB decodifica RGBA para memória nativa, copia para `Image` imutável no heap e libera a alocação original imediatamente. O renderer recebe cópias RGBA para staging. `Font` mede os avanços com STB; o cache de rasterização usa os mesmos glifos e escala. O atlas é Latin-1 (32–255), com fallback `?` por code point e suporte a nova linha; Unicode completo, kerning e shaping não existem.
 
-`AudioEffect` é dono do `AudioClip` e fecha a linha no descarte. Streams e linhas parcialmente abertas também são fechados em falhas. Java Sound permanece como API de áudio, embora a API gráfica não dependa de AWT.
+`AudioEffect` é dono do `AudioClip` e fecha a linha no descarte. A API pública preserva `AudioClip`: no JVM, o backend interno é Java Sound; no Native Image, é OpenAL com WAV PCM e device/context compartilhado pela thread do jogo. Streams, buffers, fontes, linhas e contextos parcialmente abertos são fechados em falhas. O backend nativo não consulta `java.home`.
 
 Os antigos `PropertiesLoader`, `ScenesLoader` e `ConfigurationsManager` são fachadas depreciadas do resolvedor comum. A 3.0 não possui loader JavaScript: módulos Lua entram por `ScriptRuntime` e `ResourceResolver`.
 
@@ -122,3 +122,12 @@ Para adicionar comportamento, derive `SimpleComponent`, use setup para obter dep
 Testes locais cobrem lifecycle, tempo, input, recursos, scripts Lua, áudio inválido, métricas STB, TMX, crescimento de capacidade, seleção de present mode, shader e estrutura de submissão. Os testes Lua cobrem callbacks, valores, capacidades, limite protegido, thread, descarte, `LuaScene`, recursos iguais em packs diferentes, classpath e escape por junction. O harness do `dinofx` cobre o caminho GPU, empacotamento, troca de cenas, resize, crescimento nativo do buffer e o lifecycle de uma cena Lua oculta. Os resultados atuais estão no [revisão dos blocos 1B/1C](docs/reviews/2026-09-13-lua-blocks-review.md); [REVIEW.md](REVIEW.md) preserva a revisão histórica.
 
 Atualize este arquivo quando mudar o fluxo de cenas, as regras de recursos, o contrato gráfico ou ownership de memória. Critérios ainda não demonstrados permanecem no PRD.
+
+
+## Atualização da revisão de gameplay — 14/09/2026
+
+`Sprite.scale(width,height)` marca tamanho explícito, preservado por setup tanto em imagem única quanto em spritesheet. O consumidor continua responsável pela grade e pelo ponto de apoio visual.
+
+Janelas GLFW são redimensionáveis. `CanvasViewport.fit` calcula escala uniforme e margens para o canvas lógico; o renderer aplica esse viewport e o mouse usa a transformação inversa, ignorando cliques nas margens. Maximizar mantém a proporção. O scissor continua no framebuffer e o clear cobre toda a superfície.
+
+Bordas `wasPressedThisFrame` pertencem ao update por frame. Consultá-las exclusivamente em fixedUpdate perde frames sem física e pode repetir ações na recuperação de tempo; FarmFX agora processa ações e direção no update, deslocamento na física. Regressão: 74 testes da engine e smoke DinoFX de 1.680 frames. Ver `docs/reviews/2026-09-14-gameplay.md`.

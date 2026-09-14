@@ -3,6 +3,7 @@
     "includes": [
       { "pattern": "(^|.*/)lua5464\\.dll$" },
       { "pattern": "^res/.*$" },
+      { "pattern": "^shaders/.*\\.spv$" },
       { "pattern": "^windows/x64/org/lwjgl/.*\\.dll$" }
     ]
   }

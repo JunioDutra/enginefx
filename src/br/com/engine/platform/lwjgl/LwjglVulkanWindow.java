@@ -1,7 +1,7 @@
 package br.com.engine.platform.lwjgl;
 
 import static org.lwjgl.glfw.GLFW.GLFW_CLIENT_API;
-import static org.lwjgl.glfw.GLFW.GLFW_FALSE;
+import static org.lwjgl.glfw.GLFW.GLFW_TRUE;
 import static org.lwjgl.glfw.GLFW.GLFW_NO_API;
 import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
 import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
@@ -105,7 +105,7 @@ public class LwjglVulkanWindow implements AutoCloseable
 	{
 		glfwDefaultWindowHints( );
 		glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API );
-		glfwWindowHint( GLFW_RESIZABLE, GLFW_FALSE );
+		glfwWindowHint( GLFW_RESIZABLE, GLFW_TRUE );
 
 		long windowHandle = glfwCreateWindow( width, height, title, NULL, NULL );
 
@@ -165,7 +165,10 @@ public class LwjglVulkanWindow implements AutoCloseable
 					var sizeY = stack.ints( 0 );
 					org.lwjgl.glfw.GLFW.glfwGetWindowSize( handle, sizeX, sizeY );
 					if( sizeX.get( 0 ) > 0 && sizeY.get( 0 ) > 0 )
-						Mouse.infInstace( ).click( mouseX * width / sizeX.get( 0 ), mouseY * height / sizeY.get( 0 ) );
+						{
+                            var fit=br.com.engine.graphics.CanvasViewport.fit(width,height,sizeX.get(0),sizeY.get(0));
+                            if(fit.contains(mouseX,mouseY)) Mouse.infInstace().click(fit.canvasX(mouseX),fit.canvasY(mouseY));
+                        }
 				}
 			}
 		} );

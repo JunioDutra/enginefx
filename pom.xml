@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>enginefx</groupId>
   <artifactId>enginefx</artifactId>
-  <version>3.0.0</version>
+  <version>3.1.0</version>
   <properties>
     <maven.compiler.release>25</maven.compiler.release>
     <project.build.sourceEncoding>windows-1252</project.build.sourceEncoding>
@@ -58,11 +58,11 @@
     </dependency>
     <dependency>
       <groupId>org.lwjgl</groupId>
-      <artifactId>lwjgl-shaderc</artifactId>
+      <artifactId>lwjgl-stb</artifactId>
     </dependency>
     <dependency>
       <groupId>org.lwjgl</groupId>
-      <artifactId>lwjgl-stb</artifactId>
+      <artifactId>lwjgl-openal</artifactId>
     </dependency>
     <dependency>
       <groupId>org.lwjgl</groupId>
@@ -78,13 +78,13 @@
     </dependency>
     <dependency>
       <groupId>org.lwjgl</groupId>
-      <artifactId>lwjgl-shaderc</artifactId>
+      <artifactId>lwjgl-stb</artifactId>
       <classifier>natives-windows</classifier>
       <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>org.lwjgl</groupId>
-      <artifactId>lwjgl-stb</artifactId>
+      <artifactId>lwjgl-openal</artifactId>
       <classifier>natives-windows</classifier>
       <scope>runtime</scope>
     </dependency>
@@ -103,6 +103,9 @@
     <sourceDirectory>src</sourceDirectory>
     <testSourceDirectory>tests</testSourceDirectory>
     <resources>
+      <resource>
+        <directory>src/resources</directory>
+      </resource>
       <resource>
         <directory>src</directory>
         <includes><include>META-INF/native-image/**</include></includes>
@@ -133,4 +136,38 @@
       </plugin>
     </plugins>
   </build>
+  <profiles>
+    <profile>
+      <id>shader-tools</id>
+      <dependencies>
+        <dependency>
+          <groupId>org.lwjgl</groupId>
+          <artifactId>lwjgl-shaderc</artifactId>
+        </dependency>
+        <dependency>
+          <groupId>org.lwjgl</groupId>
+          <artifactId>lwjgl-shaderc</artifactId>
+          <classifier>natives-windows</classifier>
+          <scope>runtime</scope>
+        </dependency>
+      </dependencies>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <version>3.6.1</version>
+            <executions>
+              <execution>
+                <id>add-shader-tool-source</id>
+                <phase>generate-sources</phase>
+                <goals><goal>add-source</goal></goals>
+                <configuration><sources><source>shader-tools</source></sources></configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

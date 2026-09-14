@@ -9,7 +9,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.plugin.version>3.14.1</maven.compiler.plugin.version>
     <native.build.tools.version>1.1.12</native.build.tools.version>
-    <enginefx.version>3.0.0</enginefx.version>
+    <enginefx.version>3.1.0</enginefx.version>
   </properties>
   <dependencies>
     <dependency>

@@ -1,6 +1,6 @@
 # EngineFX
 
-Engine 2D desktop em Java, com cenas e componentes, renderização **GLFW + LWJGL Vulkan**, imagens RGBA, fontes STB, áudio Java Sound e API Lua 5.4 restrita. Versão Maven: `enginefx:enginefx:3.0.0`.
+Engine 2D desktop em Java, com cenas e componentes, renderização **GLFW + LWJGL Vulkan**, imagens RGBA, fontes STB, áudio Java Sound/OpenAL e API Lua 5.4 restrita. Versão Maven preparada para release: `enginefx:enginefx:3.1.0`.
 
 ## Documentação
 
@@ -35,7 +35,7 @@ Na raiz da engine:
 .\mvnw.cmd clean install
 ```
 
-O build executa os testes e instala `target/enginefx-3.0.0.jar` no repositório Maven local. Para testes sem instalação: `.\mvnw.cmd test`. `-SkipTests` é opcional no script.
+O build executa os testes e instala `target/enginefx-3.1.0.jar` no repositório Maven local. Para testes sem instalação: `.\mvnw.cmd test`. `-SkipTests` é opcional no script.
 
 A engine é uma biblioteca; o exemplo executável está no repositório irmão `dinofx`. Com os dois checkouts lado a lado:
 
@@ -97,6 +97,8 @@ Os callbacks opcionais são `setup`, `update`, `fixed_update`, `on_event` e `dis
 `LuaComponent` adapta esses callbacks ao lifecycle de componentes, sem passar seu pai para Lua. `LuaScene` aceita apenas comandos previamente autorizados em um `LuaSceneCommandSink`; Java continua dono da composição de objetos. Toda cena de `application.json` é um id de `SceneRegistry`, não um nome de classe. `bootScene` também é um id registrado; se ausente, a primeira cena declarada é o boot determinístico. `type: "js"` continua falhando com `SCRIPT_TYPE_REMOVED`; `type: "java"` é aceito somente como compatibilidade de configuração e não ativa reflexão.
 
 `setup()`, `update(long)`, `fixedUpdate(float)`, `draw()` e `dispose()` formam o ciclo de componentes. O passo fixo é de 1/60 s; velocidades nesse callback são em pixels/segundo. Em `update`, use `Time.getDeltaTime()`. Inscreva mouse com dono: `Mouse.infInstace().addListener(this, callback)`.
+
+Depois do bootstrap, um jogo pode agendar uma transição pelo id estável, sem depender da posição no JSON: `ControleBase.getInstance().nextScene("game:play")`. O id deve constar na configuração e no `SceneRegistry`; aliases configurados resolvem para a mesma cena.
 
 `application.json` aceita `title`; ausência ou texto vazio mantém `Enginefx Vulkan`. `ControleBase.requestExit()` solicita saída normal do loop e pode ser repetido. `stop()` descarta uma única vez, mesmo se o descarte lançar exceção.
 

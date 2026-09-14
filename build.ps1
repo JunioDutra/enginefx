@@ -10,7 +10,9 @@ if ($env:JAVA_HOME) {
 if (-not (Get-Command java -ErrorAction SilentlyContinue)) {
     throw 'Install JDK 25+ and set JAVA_HOME or add java to PATH.'
 }
-$buildArgs = @('-B', '-f', (Join-Path $PSScriptRoot 'pom.xml'), 'install')
+& "$PSScriptRoot\compile-shaders.ps1"
+if ($LASTEXITCODE -ne 0) { throw "Shader asset build failed with exit code $LASTEXITCODE." }
+$buildArgs = @('-B', '-f', (Join-Path $PSScriptRoot 'pom.xml'), 'clean', 'install')
 if ($SkipTests) { $buildArgs += '-DskipTests' }
 & "$PSScriptRoot\mvnw.cmd" @buildArgs
-exit $LASTEXITCODE
+if ($LASTEXITCODE -ne 0) { throw "EngineFX Maven build failed with exit code $LASTEXITCODE." }

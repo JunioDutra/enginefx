@@ -37,7 +37,7 @@ class SceneRegistryLifecycleTest
             assertEquals(0, control.getBootScene());
             control.processLogics();
             assertEquals(1, created.get());
-            control.nextScene(0);
+            control.nextScene("legacy.Menu");
             control.processLogics();
             assertEquals(2, created.get());
             assertEquals(1, disposed.get());

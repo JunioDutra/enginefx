@@ -1,5 +1,7 @@
 # PRD — EngineFX
 
+Atualização de 14/09/2026: [revisão de integração/gameplay](docs/reviews/2026-09-14-gameplay.md), com 74 testes, resize proporcional, escala de sprites e validação do consumidor. A tabela histórica abaixo não substitui essa evidência nem o aceite externo pendente.
+
 Atualizado em 13/09/2026. Este documento acompanha o estado implementado e os próximos passos. A auditoria original está em [VULKAN_MIGRATION_REVIEW.md](VULKAN_MIGRATION_REVIEW.md); resultados atuais estão no [review 2.1](docs/reviews/2026-09-12-enginefx-2.1.md), na [revisão dos blocos Lua 1B/1C](docs/reviews/2026-09-13-lua-blocks-review.md), no [bootstrap Native Image 1D](docs/reviews/2026-09-13-native-bootstrap.md) e no histórico em [REVIEW.md](REVIEW.md).
 
 ## Objetivo

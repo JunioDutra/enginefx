@@ -6,9 +6,9 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import org.junit.jupiter.api.Test;
 
-class VulkanShaderCompilerTest
+class ShaderAssetTest
 {
-    @Test void bundledShadersAreValidSpirvModules()
+    @Test void shipsAllThreePrecompiledSpirvVariants() throws Exception
     {
         for (String resource : java.util.List.of("shaders/quad.vert.spv", "shaders/quad-srgb.frag.spv", "shaders/quad-unorm.frag.spv"))
         {
@@ -19,7 +19,6 @@ class VulkanShaderCompilerTest
                 assertTrue(bytes.length >= 20 && bytes.length % 4 == 0, resource);
                 assertEquals(0x07230203, ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getInt(), resource);
             }
-            catch (java.io.IOException exception) { fail(exception); }
         }
     }
 }

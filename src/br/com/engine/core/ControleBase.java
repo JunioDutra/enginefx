@@ -184,6 +184,20 @@ public class ControleBase implements LoopSteps
         nNextScene = nScene;
     }
 
+    /** Schedules a scene by its stable registry id, including a configured legacy alias. */
+    public void nextScene(String sceneId)
+    {
+        if (sceneRegistry == null) throw new IllegalStateException("Scene registry must be supplied before selecting a scene");
+        String resolved = sceneRegistry.resolve(sceneId);
+        for (int index = 0; index < sceneDefinitions.size(); index++)
+            if (resolved.equals(sceneRegistry.resolve(sceneDefinitions.get(index).getScene())))
+            {
+                nextScene(index);
+                return;
+            }
+        throw new IllegalArgumentException("Configured scene is not available: " + sceneId);
+    }
+
     public void goToBootScene( )
     {
         if( !bMudaScene && nNextScene != nBootScene )

@@ -565,11 +565,15 @@ public class LwjglVulkanFrameRenderer implements AutoCloseable
 
         vkCmdBeginRenderPass( commandBuffers[imageIndex], renderPassInfo, org.lwjgl.vulkan.VK10.VK_SUBPASS_CONTENTS_INLINE );
 
+        var fit = br.com.engine.graphics.CanvasViewport.fit(
+            graphicsContext.getCanvasWidth()>0?graphicsContext.getCanvasWidth():swapchain.getWidth(),
+            graphicsContext.getCanvasHeight()>0?graphicsContext.getCanvasHeight():swapchain.getHeight(),
+            swapchain.getWidth(),swapchain.getHeight());
         org.lwjgl.vulkan.VkViewport.Buffer viewport = org.lwjgl.vulkan.VkViewport.calloc( 1, stack )
-                .x( 0.0f )
-                .y( 0.0f )
-                .width( swapchain.getWidth( ) )
-                .height( swapchain.getHeight( ) )
+                .x( fit.x() )
+                .y( fit.y() )
+                .width( fit.width() )
+                .height( fit.height() )
                 .minDepth( 0.0f )
                 .maxDepth( 1.0f );
         org.lwjgl.vulkan.VK10.vkCmdSetViewport( commandBuffers[imageIndex], 0, viewport );
